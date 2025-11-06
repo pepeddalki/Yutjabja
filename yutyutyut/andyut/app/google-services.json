@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "875627623055",
+    "firebase_url": "https://yutnorigame-9b97f-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "yutnorigame-9b97f",
+    "storage_bucket": "yutnorigame-9b97f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:875627623055:android:93b0e0ca97c14f3dcaf6fa",
+        "android_client_info": {
+          "package_name": "com.example.yutnorigame"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBtjmblaaYje-ixy9pKkT1nL8rXei4OKGE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
