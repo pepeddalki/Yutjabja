@@ -21,9 +21,9 @@ public class YutMovementManager : MonoBehaviour
         return gameManager.MoveHorseBackwardInternal(horseIndex, steps);
     }
     
-    public IEnumerator MoveToSelectedPlatform(int horseIndex, int targetPlatformIndex, YutOutcome usedMovement = YutOutcome.Nak)
+    public IEnumerator MoveToSelectedPlatform(int horseIndex, int targetPlatformIndex, YutOutcome usedMovement = YutOutcome.Nak, bool forceGoalIn = false)
     {
-        return gameManager.MoveToSelectedPlatformInternal(horseIndex, targetPlatformIndex, usedMovement);
+        return gameManager.MoveToSelectedPlatformInternal(horseIndex, targetPlatformIndex, usedMovement, forceGoalIn);
     }
     
     public IEnumerator WaitForMovement(PlayerController horse)

@@ -32,6 +32,9 @@ public class YutGameManager : MonoBehaviour
     public Button testMoButton;     // 모 테스트 버튼
     public Button testBackDoButton; // 빽도 테스트 버튼
     
+    [Header("Goal In Button")]
+    public Button goalInButton;      // 골인 버튼
+    
     [Header("Game State")]
     // 턴 인덱스(0~1): 0=바바리안 팀, 1=기사 팀 (기사 → 바바리안 → 기사 → 바바리안 순서)
     public int currentTurnIndex = 0; // 0: 바바리안, 1: 기사
@@ -67,6 +70,8 @@ public class YutGameManager : MonoBehaviour
     public int currentMoveSteps = 0; // 현재 이동할 칸 수
     [System.NonSerialized]
     public bool isBackDoTurn = false; // 빽도 턴인지 여부
+    [System.NonSerialized]
+    public YutOutcome currentGoalInMovement = YutOutcome.Nak; // 골인에 사용할 이동
     // pendingMovements, savedYutOutcome, hasSavedYutOutcome, turnChangedInMoveToPlatform는 YutTurnManager로 이동됨
     [System.NonSerialized]
     private Vector3[] horseInitialPositions; // 각 말의 초기 시작 위치 (0~3: 바바리안, 4~7: 기사) - 실제 transform.position 좌표
@@ -201,15 +206,70 @@ public class YutGameManager : MonoBehaviour
             selectablePlatformIndices = new List<int>();
         }
         
-        // selectableHorseIndices 초기화
-        if (selectableHorseIndices == null)
-        {
-            selectableHorseIndices = new List<int>();
-        }
-        
         if (throwButton != null)
         {
             throwButton.onClick.AddListener(ThrowYut);
+            
+            // 버튼 텍스트 설정
+            TextMeshProUGUI buttonText = throwButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText != null)
+            {
+                buttonText.text = "윷 던지자";
+                
+                // 폰트 크기를 2배로 설정
+                buttonText.fontSize = buttonText.fontSize * 2f;
+                
+                // 텍스트 색상을 흰색으로 설정
+                buttonText.color = Color.white;
+                
+                // Maplestory Bold 폰트 로드 및 적용
+                TMP_FontAsset maplestoryFont = Resources.Load<TMP_FontAsset>("TextMesh Pro/Fonts & Materials/Maplestory Bold SDF");
+                if (maplestoryFont == null)
+                {
+                    // Resources 폴더에 없으면 직접 경로로 로드 시도 (에디터 전용)
+                    #if UNITY_EDITOR
+                    maplestoryFont = UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Fonts/Maplestory Bold SDF.asset");
+                    #endif
+                }
+                
+                if (maplestoryFont != null)
+                {
+                    buttonText.font = maplestoryFont;
+                }
+                else
+                {
+                    Debug.LogWarning("Maplestory Bold 폰트를 찾을 수 없습니다. 기본 폰트를 사용합니다.");
+                }
+            }
+            else
+            {
+                // TextMeshProUGUI가 없으면 일반 Text 컴포넌트 확인
+                UnityEngine.UI.Text textComponent = throwButton.GetComponentInChildren<UnityEngine.UI.Text>();
+                if (textComponent != null)
+                {
+                    textComponent.text = "윷 던지자";
+                    
+                    // 폰트 크기를 2배로 설정
+                    textComponent.fontSize = (int)(textComponent.fontSize * 2f);
+                    
+                    // 텍스트 색상을 흰색으로 설정
+                    textComponent.color = Color.white;
+                    
+                    // 일반 Text 컴포넌트의 경우 폰트는 Font 타입이므로 TTF 파일을 로드해야 함
+                    Font maplestoryFont = Resources.Load<Font>("TextMesh Pro/Fonts/Maplestory Bold");
+                    if (maplestoryFont == null)
+                    {
+                        #if UNITY_EDITOR
+                        maplestoryFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/TextMesh Pro/Fonts/Maplestory Bold.ttf");
+                        #endif
+                    }
+                    
+                    if (maplestoryFont != null)
+                    {
+                        textComponent.font = maplestoryFont;
+                    }
+                }
+            }
         }
         else
         {
@@ -240,6 +300,78 @@ public class YutGameManager : MonoBehaviour
         if (testBackDoButton != null)
         {
             testBackDoButton.onClick.AddListener(() => TestThrowYut(YutOutcome.Do, true)); // 빽도는 Do로 전달하되 isBackDo=true
+        }
+        
+        // 골인 버튼 리스너 설정
+        if (goalInButton != null)
+        {
+            goalInButton.onClick.AddListener(OnGoalInButtonClicked);
+            goalInButton.gameObject.SetActive(false); // 초기에는 숨김
+            
+            // 골인 버튼 텍스트 설정 (throwButton과 동일한 폰트 사용)
+            TextMeshProUGUI buttonText = goalInButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText != null)
+            {
+                buttonText.text = "골인";
+                
+                // 폰트 크기를 2배로 설정 (throwButton과 동일)
+                buttonText.fontSize = buttonText.fontSize * 2f;
+                
+                // 텍스트 색상을 흰색으로 설정 (throwButton과 동일)
+                buttonText.color = Color.white;
+                
+                // Maplestory Bold 폰트 로드 및 적용 (throwButton과 동일)
+                TMP_FontAsset maplestoryFont = Resources.Load<TMP_FontAsset>("TextMesh Pro/Fonts & Materials/Maplestory Bold SDF");
+                if (maplestoryFont == null)
+                {
+                    // Resources 폴더에 없으면 직접 경로로 로드 시도 (에디터 전용)
+                    #if UNITY_EDITOR
+                    maplestoryFont = UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Fonts/Maplestory Bold SDF.asset");
+                    #endif
+                }
+                
+                if (maplestoryFont != null)
+                {
+                    buttonText.font = maplestoryFont;
+                }
+                else
+                {
+                    Debug.LogWarning("골인 버튼: Maplestory Bold 폰트를 찾을 수 없습니다. 기본 폰트를 사용합니다.");
+                }
+            }
+            else
+            {
+                // TextMeshProUGUI가 없으면 일반 Text 컴포넌트 확인
+                UnityEngine.UI.Text textComponent = goalInButton.GetComponentInChildren<UnityEngine.UI.Text>();
+                if (textComponent != null)
+                {
+                    textComponent.text = "골인";
+                    
+                    // 폰트 크기를 2배로 설정 (throwButton과 동일)
+                    textComponent.fontSize = (int)(textComponent.fontSize * 2f);
+                    
+                    // 텍스트 색상을 흰색으로 설정 (throwButton과 동일)
+                    textComponent.color = Color.white;
+                    
+                    // 일반 Text 컴포넌트의 경우 폰트는 Font 타입이므로 TTF 파일을 로드해야 함
+                    Font maplestoryFont = Resources.Load<Font>("TextMesh Pro/Fonts/Maplestory Bold");
+                    if (maplestoryFont == null)
+                    {
+                        #if UNITY_EDITOR
+                        maplestoryFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/TextMesh Pro/Fonts/Maplestory Bold.ttf");
+                        #endif
+                    }
+                    
+                    if (maplestoryFont != null)
+                    {
+                        textComponent.font = maplestoryFont;
+                    }
+                    else
+                    {
+                        Debug.LogWarning("골인 버튼: Maplestory Bold 폰트를 찾을 수 없습니다. 기본 폰트를 사용합니다.");
+                    }
+                }
+            }
         }
         
         // horseManager 초기화
@@ -359,7 +491,7 @@ public class YutGameManager : MonoBehaviour
         List<int> sameTeamHorsesAtStart = new List<int>();
         for (int j = 0; j < playerPositions.Length; j++)
         {
-                if (j != horseIndex && playerPositions[j] == startPosition && playerPositions[j] != -1)
+                if (j != horseIndex && playerPositions[j] == startPosition && playerPositions[j] != -1 && playerPositions[j] != -2)
             {
                 bool jIsBarbarian = j < 4;
                 if (jIsBarbarian == isBarbarian)
@@ -398,6 +530,18 @@ public class YutGameManager : MonoBehaviour
         
         // C1 경로에서 시작했는지 추적 (EF3에서 분기 판단용)
         bool isC1Path = (startPosition == 10);
+        // F 경로인지 추적 (F1, F2, F4, F5에서 시작하거나 F 경로를 통해 이동)
+        bool isFPath = false;
+        
+        // F 경로로 시작하는 경우 확인
+        if (startPosition == 25 || startPosition == 26 || startPosition == 27 || startPosition == 28)
+        {
+            isFPath = true;
+        }
+        if (isC1Path)
+        {
+            isFPath = true; // C1 경로는 F 경로
+        }
         
         for (int i = 0; i < steps; i++)
         {
@@ -440,11 +584,23 @@ public class YutGameManager : MonoBehaviour
             else if (currentPos == 22 && isC1Path) // C1 경로에서 EF3에 도착한 경우 F4로 분기
             {
                 nextPos = 27; // F4로 분기
+                isFPath = true; // F 경로로 설정
+            }
+            // F 경로에서 EF3에 도착한 경우 F4로 분기
+            else if (currentPos == 22 && isFPath) // F 경로에서 EF3에 도착한 경우 F4로 분기
+            {
+                nextPos = 27; // F4로 분기
             }
             else
             {
-                // 일반 경로 또는 중간 경로 (EF3를 지나갈 때는 E4로 진행)
+                // 일반 경로 또는 중간 경로
                 nextPos = GetNextPositionInPath(currentPos);
+                
+                // F 경로 추적: F1, F2, F4, F5를 지나가면 F 경로로 설정
+                if (currentPos == 25 || currentPos == 26 || currentPos == 27 || currentPos == 28 || nextPos == 25 || nextPos == 26 || nextPos == 27 || nextPos == 28)
+                {
+                    isFPath = true;
+                }
             }
             
             playerPositions[horseIndex] = nextPos;
@@ -687,7 +843,15 @@ public class YutGameManager : MonoBehaviour
                     if (isLastStep && platformManager != null && playerPositions[horseIndex] == platformManager.GoldenPlatformIndex)
                     {
                         hasExtraThrow = true;
+                        canThrowAgain = true; // 즉시 던질 기회 제공
                         platformManager.RestorePlatformColor(platformManager.GoldenPlatformIndex);
+                        
+                        // 황금 발판 효과 메시지 표시
+                        if (resultText != null)
+                        {
+                            resultText.text = "황금 발판 효과! 추가 던질 기회 획득!";
+                        }
+                        
                         yield return new WaitForSeconds(0.5f); // 효과 확인 시간
                         platformManager.SelectRandomGoldenPlatform();
                     }
@@ -907,7 +1071,7 @@ public class YutGameManager : MonoBehaviour
         List<int> sameTeamHorsesAtStart = new List<int>();
         for (int j = 0; j < playerPositions.Length; j++)
         {
-                if (j != horseIndex && playerPositions[j] == startPosition && playerPositions[j] != -1)
+                if (j != horseIndex && playerPositions[j] == startPosition && playerPositions[j] != -1 && playerPositions[j] != -2)
             {
                 bool jIsBarbarian = j < 4;
                 if (jIsBarbarian == isBarbarian)
@@ -972,6 +1136,10 @@ public class YutGameManager : MonoBehaviour
                 // 적의 말을 잡았으면 시작 위치로 보내기
                 if (enemyHorsesToCapture.Count > 0)
                 {
+                    // 빽도로 말을 잡았을 때는 추가 던질 기회 부여
+                    bool isBackDoCapture = isBackDoTurn;
+                    Debug.Log($"[MoveHorseBackwardInternal] 적 말을 잡음. isBackDoTurn: {isBackDoTurn}, isBackDoCapture: {isBackDoCapture}");
+                    
                     foreach (int enemyHorseIndex in enemyHorsesToCapture)
                     {
                         // 해당 적의 말과 같은 위치에 있는 같은 팀 말들도 모두 찾기
@@ -1026,6 +1194,21 @@ public class YutGameManager : MonoBehaviour
                                 horseManager.UpdateHorseUI(enemyTeamHorse, -1, positionNames);
                             }
                         }
+                    }
+                    
+                    // 빽도로 말을 잡았으면 추가 던질 기회 부여
+                    if (isBackDoCapture)
+                    {
+                        Debug.Log("[MoveHorseBackwardInternal] 빽도로 적 말을 잡아서 추가 던질 기회 부여");
+                        canThrowAgain = true;
+                        if (resultText != null)
+                        {
+                            resultText.text = "적 말을 잡았습니다! 빽도로 추가 던질 기회 획득!";
+                        }
+                    }
+                    else
+                    {
+                        Debug.Log($"[MoveHorseBackwardInternal] 빽도가 아님. isBackDoCapture: {isBackDoCapture}");
                     }
                 }
                 
@@ -1153,6 +1336,12 @@ public class YutGameManager : MonoBehaviour
         }
         
         isPlayerMoving = false;
+        
+        // 빽도 턴 종료 (이동 완료 후)
+        if (isBackDoTurn)
+        {
+            isBackDoTurn = false;
+        }
     }
     
     
@@ -1217,21 +1406,49 @@ public class YutGameManager : MonoBehaviour
         // 현재 위치에서 moveSteps만큼 이동하면서 경로 추적
         int currentPos = currentPosition;
         int startPos = currentPosition; // 시작 위치 저장
+        int originalMoveStepsForGoal = moveSteps; // 골인 조건 확인을 위한 원래 moveSteps 저장
         
         // B1(5) 또는 EF3(22)에서 시작하는 경우, 분기 경로로 이동 (분기는 한 칸 소모하지 않음)
         // C1(10)은 F 경로로 일직선 이동 (분기도 한 칸 소모)
+        // F1(25) 또는 F2(26)에서 시작하는 경우도 F 경로로 처리
+        bool startedFromB1 = false;
+        bool startedFromEF3 = false;
+        bool isFPath = false; // F 경로인지 추적 (F1, F2, F4, F5에서 시작하거나 F 경로를 통해 이동)
+        
         if (currentPos == 5) // B1에서 시작
         {
             currentPos = 20; // E1로 분기
+            startedFromB1 = true;
+            // B1에서 분기했으므로 루프에서는 moveSteps-1만큼만 이동
+            moveSteps = moveSteps - 1;
         }
         else if (currentPos == 22) // EF3에서 시작
         {
             currentPos = 27; // F4로 분기
+            startedFromEF3 = true;
+            isFPath = true; // EF3에서 시작하면 F 경로
+            // EF3에서 분기했으므로 루프에서는 moveSteps-1만큼만 이동
+            moveSteps = moveSteps - 1;
+        }
+        else if (currentPos == 25 || currentPos == 26) // F1 또는 F2에서 시작
+        {
+            isFPath = true; // F 경로로 시작
         }
         // C1은 F 경로로 일직선 이동하므로 분기 후 루프에서 처리
         
         // C1 경로에서 시작했는지 추적 (EF3에서 분기 판단용)
         bool isC1Path = (startPos == 10);
+        if (isC1Path)
+        {
+            isFPath = true; // C1 경로는 F 경로
+        }
+        
+        // moveSteps가 0 이하가 되면 분기점에 도착한 것이므로 바로 반환
+        if (moveSteps <= 0)
+        {
+            availablePositions.Add(currentPos);
+            return availablePositions;
+        }
         
         for (int i = 0; i < moveSteps; i++)
         {
@@ -1259,18 +1476,167 @@ public class YutGameManager : MonoBehaviour
             else if (currentPos == 22 && isC1Path) // C1 경로에서 EF3에 도착한 경우 F4로 분기
             {
                 nextPos = 27; // F4로 분기
+                isFPath = true; // F 경로로 설정
+            }
+            // F 경로에서 EF3에 도착한 경우 F4로 분기
+            else if (currentPos == 22 && isFPath) // F 경로에서 EF3에 도착한 경우 F4로 분기
+            {
+                nextPos = 27; // F4로 분기
             }
             else
             {
                 // 일반 경로 또는 중간 경로
                 nextPos = GetNextPositionInPath(currentPos);
+                
+                // F 경로 추적: F1, F2, F4, F5를 지나가면 F 경로로 설정
+                if (currentPos == 25 || currentPos == 26 || currentPos == 27 || currentPos == 28 || nextPos == 25 || nextPos == 26 || nextPos == 27 || nextPos == 28)
+                {
+                    isFPath = true;
+                }
             }
             
             currentPos = nextPos;
         }
         
-        // 최종 도착 위치 추가
-        availablePositions.Add(currentPos);
+        // A1(0)에 도착할 수 있는지 확인
+        // 단, 시작점이 A1(0)이거나 대기공간(-1)인 경우는 제외 (시작점)
+        bool canReachA1 = false;
+        bool isGoalIn = false; // 골인 조건을 만족하는지
+        
+        if (startPos != 0 && startPos != -1)
+        {
+            // 실제 이동 경로를 시뮬레이션하여 A1을 지나가는지 확인
+            int simPos = startPos;
+            // 원래 moveSteps를 사용 (분기는 거리를 소모하지 않으므로)
+            int originalMoveSteps = originalMoveStepsForGoal;
+            bool passedA1 = false;
+            int stepsToA1 = 0;
+            bool isC1PathSim = (startPos == 10);
+            bool isFPathSim = false; // F 경로인지 추적 (시뮬레이션용)
+            
+            // B1에서 시작한 경우 E1로 분기 (분기는 거리 소모 안 함)
+            if (simPos == 5)
+            {
+                simPos = 20; // E1로 분기
+            }
+            else if (simPos == 22) // EF3에서 시작
+            {
+                simPos = 27; // F4로 분기 (C1 경로로 이동)
+                isC1PathSim = true; // EF3에서 시작하면 C1 경로로 이동
+                isFPathSim = true; // F 경로로 설정
+            }
+            else if (simPos == 25 || simPos == 26) // F1 또는 F2에서 시작
+            {
+                isFPathSim = true; // F 경로로 시작
+            }
+            if (isC1PathSim)
+            {
+                isFPathSim = true; // C1 경로는 F 경로
+            }
+            
+            // 실제 이동 경로를 따라가면서 A1을 지나가는지 확인
+            int moveCount = 0; // 실제 이동한 횟수 (분기는 제외)
+            bool simStartedFromEF3 = (startPos == 22); // EF3에서 시작했는지 확인 (시뮬레이션용)
+            for (int i = 0; i < originalMoveSteps; i++)
+            {
+                if (simPos == 0) // A1에 도착
+                {
+                    passedA1 = true;
+                    canReachA1 = true;
+                    stepsToA1 = moveCount; // 실제 이동 횟수
+                    break;
+                }
+                
+                int nextSimPos;
+                if (simPos == 10 && i == 0) // C1에서 시작
+                {
+                    nextSimPos = 25; // F1로 분기 (1칸 소모)
+                    moveCount++; // C1에서 F1로 분기는 1칸 소모
+                }
+                else if (simPos == 22 && simStartedFromEF3 && i == 0) // EF3에서 시작 (첫 번째 단계)
+                {
+                    nextSimPos = 27; // F4로 분기
+                    // EF3에서 F4로 분기는 거리 소모 안 함
+                }
+                else if (simPos == 22 && isC1PathSim && !simStartedFromEF3) // C1 경로에서 EF3에 도착 (EF3에서 시작한 경우 제외)
+                {
+                    nextSimPos = 27; // F4로 분기
+                    isFPathSim = true; // F 경로로 설정
+                    // EF3에서 F4로 분기는 거리 소모 안 함 (이미 분기 경로에 있음)
+                }
+                else if (simPos == 22 && isFPathSim) // F 경로에서 EF3에 도착한 경우 F4로 분기
+                {
+                    nextSimPos = 27; // F4로 분기
+                    // EF3에서 F4로 분기는 거리 소모 안 함
+                }
+                else
+                {
+                    nextSimPos = GetNextPositionInPath(simPos);
+                    moveCount++; // 일반 이동은 1칸 소모
+                    
+                    // F 경로 추적: F1, F2, F4, F5를 지나가면 F 경로로 설정
+                    if (simPos == 25 || simPos == 26 || simPos == 27 || simPos == 28 || nextSimPos == 25 || nextSimPos == 26 || nextSimPos == 27 || nextSimPos == 28)
+                    {
+                        isFPathSim = true;
+                    }
+                }
+                simPos = nextSimPos;
+            }
+            
+            // A1을 지나갔고, A1 이후에 한 칸 이상 더 이동 가능한 경우 골인
+            if (passedA1)
+            {
+                // EF3에서 시작한 경우: 분기는 거리 소모 안 하므로 stepsToA1이 실제 이동 횟수
+                // A1에 도착했을 때 남은 이동 횟수 = originalMoveSteps - stepsToA1
+                int remainingSteps = originalMoveSteps - stepsToA1;
+                Debug.Log($"[골인 조건 확인] startPos: {startPos}, originalMoveSteps: {originalMoveSteps}, stepsToA1: {stepsToA1}, remainingSteps: {remainingSteps}");
+                // A1 이후에 한 칸 이상 더 이동 가능하면 골인 (remainingSteps > 1)
+                // A1에 정확히 도착한 경우 (remainingSteps == 1)는 골인이 아님
+                if (remainingSteps > 1)
+                {
+                    isGoalIn = true;
+                    Debug.Log($"[골인 조건 만족] 골인 조건을 만족합니다. A1만 표시합니다.");
+                }
+                else
+                {
+                    Debug.Log($"[골인 조건 불만족] A1에 정확히 도착했습니다. 골인이 아닙니다. remainingSteps: {remainingSteps}");
+                }
+            }
+        }
+        
+        // 골인 조건을 만족하는 경우에도 A1과 최종 도착 위치를 모두 표시
+        // (골인 버튼으로 골인할 수 있도록, A1 클릭 시에는 일반 이동)
+        if (isGoalIn)
+        {
+            // A1 추가
+            if (!availablePositions.Contains(0))
+            {
+                availablePositions.Add(0);
+            }
+            // 최종 도착 위치도 추가 (골인 조건을 만족해도 일반 이동 가능)
+            if (!availablePositions.Contains(currentPos))
+            {
+                availablePositions.Add(currentPos);
+            }
+            Debug.Log($"[골인 가능] A1과 최종 위치 모두 표시: {string.Join(", ", availablePositions)}");
+        }
+        else
+        {
+            // A1에 도착할 수 있으면 A1을 availablePositions에 추가 (골인 조건은 아니지만 A1에 도착 가능)
+            if (canReachA1)
+            {
+                if (!availablePositions.Contains(0))
+                {
+                    availablePositions.Add(0); // A1 추가
+                }
+            }
+            
+            // 최종 도착 위치 추가
+            if (!availablePositions.Contains(currentPos))
+            {
+                availablePositions.Add(currentPos);
+            }
+        }
         
         // C1이 최종 목적지인 경우 F1로 분기한 위치도 추가 (플레이어 선택용)
         // 단, C1에서 시작해서 C1에 도착하는 경우에만 F1도 추가 (예: 윷윷윷개에서 C1이 최종 목적지)
@@ -1284,16 +1650,92 @@ public class YutGameManager : MonoBehaviour
         return availablePositions;
     }
     
+    // 시작 위치에서 A1까지의 거리 계산
+    int CalculateDistanceToA1(int startPosition)
+    {
+        if (startPosition == 0) return 0; // 이미 A1에 있음
+        if (startPosition == -1) return 0; // 대기공간에서 시작하면 A1에서 시작
+        
+        int distance = 0;
+        int currentPos = startPosition;
+        bool isFPath = false; // F 경로인지 추적
+        
+        // B1에서 시작하는 경우 E1로 분기
+        if (currentPos == 5)
+        {
+            currentPos = 20; // E1로 분기
+            distance = 0; // 분기는 거리 소모 안 함
+        }
+        else if (currentPos == 22) // EF3에서 시작
+        {
+            currentPos = 27; // F4로 분기
+            distance = 0; // 분기는 거리 소모 안 함
+            isFPath = true; // EF3에서 시작하면 F 경로
+        }
+        else if (currentPos == 25 || currentPos == 26) // F1 또는 F2에서 시작
+        {
+            isFPath = true; // F 경로로 시작
+        }
+        else if (currentPos == 10) // C1에서 시작
+        {
+            isFPath = true; // C1 경로는 F 경로
+        }
+        
+        // A1에 도착할 때까지 이동
+        int maxSteps = 100; // 무한 루프 방지
+        for (int i = 0; i < maxSteps; i++)
+        {
+            if (currentPos == 0) // A1에 도착
+            {
+                break;
+            }
+            
+            int nextPos;
+            if (currentPos == 10 && i == 0) // C1에서 시작
+            {
+                nextPos = 25; // F1로 분기
+            }
+            else if (currentPos == 22 && (startPosition == 10)) // C1 경로에서 EF3
+            {
+                nextPos = 27; // F4로 분기
+                isFPath = true; // F 경로로 설정
+            }
+            else if (currentPos == 22 && isFPath) // F 경로에서 EF3에 도착한 경우 F4로 분기
+            {
+                nextPos = 27; // F4로 분기
+            }
+            else
+            {
+                nextPos = GetNextPositionInPath(currentPos);
+                
+                // F 경로 추적: F1, F2, F4, F5를 지나가면 F 경로로 설정
+                if (currentPos == 25 || currentPos == 26 || currentPos == 27 || currentPos == 28 || nextPos == 25 || nextPos == 26 || nextPos == 27 || nextPos == 28)
+                {
+                    isFPath = true;
+                }
+            }
+            
+            currentPos = nextPos;
+            distance++;
+        }
+        
+        return distance;
+    }
+    
     // 경로상 다음 위치 계산 (분기 경로 포함)
     int GetNextPositionInPath(int currentPosition)
     {
-        // B1 경로: E1(20) → E2(21) → EF3(22) → E4(23) → E5(24) → D1(15) → D2(16)
+        // B1 경로: E1(20) → E2(21) → EF3(22) → E4(23) → E5(24) → D1(15) → D2(16) → D3(17) → D4(18) → D5(19) → A1(0)
         if (currentPosition == 20) return 21; // E1 → E2
         if (currentPosition == 21) return 22; // E2 → EF3
         if (currentPosition == 22) return 23; // EF3 → E4
         if (currentPosition == 23) return 24; // E4 → E5
         if (currentPosition == 24) return 15; // E5 → D1
         if (currentPosition == 15) return 16; // D1 → D2
+        if (currentPosition == 16) return 17; // D2 → D3
+        if (currentPosition == 17) return 18; // D3 → D4
+        if (currentPosition == 18) return 19; // D4 → D5
+        if (currentPosition == 19) return 0;  // D5 → A1
         
         // C1 경로: F1(25) → F2(26) → EF3(22) → F4(27) → F5(28) → A1(0)
         // C1 경로에서만 사용되는 경로들
@@ -1342,8 +1784,15 @@ public class YutGameManager : MonoBehaviour
     
     // 선택한 발판으로 이동
     // Internal 메서드로 변경 (movementManager에서 호출)
-    public IEnumerator MoveToSelectedPlatformInternal(int horseIndex, int targetPlatformIndex, YutOutcome usedMovement = YutOutcome.Nak)
+    public IEnumerator MoveToSelectedPlatformInternal(int horseIndex, int targetPlatformIndex, YutOutcome usedMovement = YutOutcome.Nak, bool forceGoalIn = false)
     {
+        // 골인한 말(-2)은 이동하지 않음
+        if (playerPositions[horseIndex] == -2)
+        {
+            Debug.LogWarning($"MoveToSelectedPlatformInternal: 말 {horseIndex}는 이미 골인했습니다. 이동하지 않습니다.");
+            yield break;
+        }
+        
         isPlayerMoving = true;
         
         // 이동 전에 말이 숨겨져 있으면 일단 보이게 함
@@ -1365,7 +1814,7 @@ public class YutGameManager : MonoBehaviour
         List<int> sameTeamHorsesAtStart = new List<int>();
         for (int j = 0; j < playerPositions.Length; j++)
         {
-                if (j != horseIndex && playerPositions[j] == startPosition && playerPositions[j] != -1)
+                if (j != horseIndex && playerPositions[j] == startPosition && playerPositions[j] != -1 && playerPositions[j] != -2)
             {
                 bool jIsBarbarian = j < 4;
                 if (jIsBarbarian == isBarbarian)
@@ -1409,9 +1858,265 @@ public class YutGameManager : MonoBehaviour
         
         // C1 경로에서 시작했는지 추적 (EF3에서 분기 판단용)
         bool isC1Path = (startPosition == 10);
+        // F 경로인지 추적 (F1, F2, F4, F5에서 시작하거나 F 경로를 통해 이동)
+        bool isFPath = false;
+        
+        // F 경로로 시작하는 경우 확인
+        if (startPosition == 25 || startPosition == 26 || startPosition == 27 || startPosition == 28)
+        {
+            isFPath = true;
+        }
+        if (isC1Path)
+        {
+            isFPath = true; // C1 경로는 F 경로
+        }
+        
+        // 골인 조건 확인을 위한 변수들
+        bool passedA1 = false; // A1을 지나쳤는지
+        int stepsToA1 = 0; // A1까지의 실제 이동 횟수
+        int moveSteps = 0; // 사용된 이동 칸 수
+        if (usedMovement != YutOutcome.Nak)
+        {
+            moveSteps = YutGameUtils.GetMoveSteps((int)usedMovement);
+        }
+        
+        // 빽도인 경우 특수 위치에서 선택한 발판으로 직접 이동
+        // isBackDoTurn 플래그를 우선 확인 (YutSelectionHandler에서 설정됨)
+        // 또는 usedMovement가 Do이고 특수 위치에서 특정 발판으로 이동하는 경우
+        bool isBackDo = isBackDoTurn || IsBackDo(usedMovement);
+        bool isSpecialBackDoPosition = (startPosition == 22 && (targetPlatformIndex == 21 || targetPlatformIndex == 26)) ||
+                                       (startPosition == 15 && (targetPlatformIndex == 14 || targetPlatformIndex == 24)) ||
+                                       (startPosition == 0 && (targetPlatformIndex == 19 || targetPlatformIndex == 28));
+        
+        // 빽도 턴이거나, Do이고 특수 위치에서 특정 발판으로 이동하는 경우 빽도로 처리
+        if (isBackDo || (usedMovement == YutOutcome.Do && isSpecialBackDoPosition))
+        {
+            Debug.Log($"[MoveToSelectedPlatformInternal] 빽도 조건 만족 - isBackDoTurn: {isBackDoTurn}, isBackDo: {isBackDo}, usedMovement: {usedMovement}, isSpecialBackDoPosition: {isSpecialBackDoPosition}");
+            Debug.Log($"[MoveToSelectedPlatformInternal] 빽도 조건 만족! 특수 위치 체크 시작");
+            // 특수 위치에서 빽도: 선택한 발판으로 직접 이동
+            // EF3(22)에서 E2(21) 또는 F2(26)로
+            if (startPosition == 22 && (targetPlatformIndex == 21 || targetPlatformIndex == 26))
+            {
+                Debug.Log($"[MoveToSelectedPlatformInternal] EF3에서 빽도: E2 또는 F2로 직접 이동");
+                playerPositions[horseIndex] = targetPlatformIndex;
+                // 함께 이동할 말들도 이동
+                foreach (int otherHorseIndex in horsesToMoveTogether)
+                {
+                    playerPositions[otherHorseIndex] = targetPlatformIndex;
+                }
+            }
+            else if (startPosition == 15 && (targetPlatformIndex == 14 || targetPlatformIndex == 24)) // D1에서 C5 또는 E5로
+            {
+                playerPositions[horseIndex] = targetPlatformIndex;
+                // 함께 이동할 말들도 이동
+                foreach (int otherHorseIndex in horsesToMoveTogether)
+                {
+                    playerPositions[otherHorseIndex] = targetPlatformIndex;
+                }
+            }
+            else if (startPosition == 0 && (targetPlatformIndex == 19 || targetPlatformIndex == 28)) // A1에서 D5 또는 F5로
+            {
+                playerPositions[horseIndex] = targetPlatformIndex;
+                // 함께 이동할 말들도 이동
+                foreach (int otherHorseIndex in horsesToMoveTogether)
+                {
+                    playerPositions[otherHorseIndex] = targetPlatformIndex;
+                }
+            }
+            // 일반 빽도: 뒤로 한 칸 이동
+            else
+            {
+                // 특수 분기점에서 빽도: 원래 분기 전 위치로 이동
+                if (startPosition == 20) // E1에서 빽도
+                {
+                    playerPositions[horseIndex] = 5; // B1로 이동
+                    foreach (int otherHorseIndex in horsesToMoveTogether)
+                    {
+                        playerPositions[otherHorseIndex] = 5; // B1로 이동
+                    }
+                }
+                else if (startPosition == 25) // F1에서 빽도
+                {
+                    playerPositions[horseIndex] = 10; // C1로 이동
+                    foreach (int otherHorseIndex in horsesToMoveTogether)
+                    {
+                        playerPositions[otherHorseIndex] = 10; // C1로 이동
+                    }
+                }
+                else
+                {
+                    // F 경로에서 빽도: 경로를 역으로 추적
+                    if (startPosition == 27) // F4에서 빽도
+                    {
+                        playerPositions[horseIndex] = 22; // EF3로 이동
+                        foreach (int otherHorseIndex in horsesToMoveTogether)
+                        {
+                            playerPositions[otherHorseIndex] = 22; // EF3로 이동
+                        }
+                    }
+                    else if (startPosition == 28) // F5에서 빽도
+                    {
+                        playerPositions[horseIndex] = 27; // F4로 이동
+                        foreach (int otherHorseIndex in horsesToMoveTogether)
+                        {
+                            playerPositions[otherHorseIndex] = 27; // F4로 이동
+                        }
+                    }
+                    else if (startPosition == 26) // F2에서 빽도
+                    {
+                        playerPositions[horseIndex] = 25; // F1로 이동
+                        foreach (int otherHorseIndex in horsesToMoveTogether)
+                        {
+                            playerPositions[otherHorseIndex] = 25; // F1로 이동
+                        }
+                    }
+                    else
+                    {
+                        // 일반 빽도: 뒤로 한 칸 이동
+                        playerPositions[horseIndex] = Mathf.Max(0, playerPositions[horseIndex] - 1);
+                        foreach (int otherHorseIndex in horsesToMoveTogether)
+                        {
+                            playerPositions[otherHorseIndex] = Mathf.Max(0, playerPositions[otherHorseIndex] - 1);
+                        }
+                    }
+                }
+            }
+            
+            Debug.Log($"[빽도 이동] 시작 위치: {startPosition} ({positionNames[startPosition]}), 목표 위치: {targetPlatformIndex} ({positionNames[targetPlatformIndex]}), 최종 위치: {playerPositions[horseIndex]}");
+            
+            // 빽도 이동 애니메이션 처리
+            if (players[horseIndex] != null)
+            {
+                Vector3 targetPosition = boardPositions[playerPositions[horseIndex]].position;
+                PlayerController playerController = players[horseIndex].GetComponent<PlayerController>();
+                if (playerController != null)
+                {
+                    playerController.MoveToPosition(targetPosition);
+                    // 이동 완료 대기
+                    while (!playerController.HasReachedDestination())
+                    {
+                        float distance = Vector3.Distance(players[horseIndex].transform.position, targetPosition);
+                        if (distance < 0.3f) break;
+                        yield return null;
+                    }
+                }
+                else
+                {
+                    players[horseIndex].transform.position = targetPosition;
+                }
+            }
+            
+            // 함께 이동한 말들도 이동 애니메이션
+            foreach (int otherHorseIndex in horsesToMoveTogether)
+            {
+                if (players[otherHorseIndex] != null)
+                {
+                    Vector3 targetPos = boardPositions[playerPositions[otherHorseIndex]].position;
+                    PlayerController otherController = players[otherHorseIndex].GetComponent<PlayerController>();
+                    if (otherController != null)
+                    {
+                        otherController.MoveToPosition(targetPos);
+                        // 이동 완료 대기
+                        while (!otherController.HasReachedDestination())
+                        {
+                            float distance = Vector3.Distance(players[otherHorseIndex].transform.position, targetPos);
+                            if (distance < 0.3f) break;
+                            yield return null;
+                        }
+                    }
+                    else
+                    {
+                        players[otherHorseIndex].transform.position = targetPos;
+                    }
+                }
+            }
+            
+            // 빽도 이동 완료 처리
+            int finalPos = playerPositions[horseIndex];
+            bool isBackDoBarbarian = horseIndex < 4;
+            
+            // 도착한 발판에 적의 말이 있으면 잡기
+            List<int> enemyHorsesToCapture = new List<int>();
+            for (int j = 0; j < playerPositions.Length; j++)
+            {
+                if (j != horseIndex && !horsesToMoveTogether.Contains(j) && playerPositions[j] == finalPos && playerPositions[j] != -1 && playerPositions[j] != -2)
+                {
+                    bool jIsBarbarian = j < 4;
+                    // 적의 말이면 잡기 목록에 추가
+                    if (jIsBarbarian != isBackDoBarbarian)
+                    {
+                        enemyHorsesToCapture.Add(j);
+                    }
+                }
+            }
+            
+            // 적의 말 잡기 처리
+            foreach (int enemyHorseIndex in enemyHorsesToCapture)
+            {
+                // 적의 말을 대기공간으로 이동
+                int oldPosition = playerPositions[enemyHorseIndex];
+                playerPositions[enemyHorseIndex] = -1;
+                
+                // 적의 말과 같은 위치에 있던 같은 팀 말들도 대기공간으로
+                bool enemyIsBarbarian = enemyHorseIndex < 4;
+                for (int k = 0; k < playerPositions.Length; k++)
+                {
+                    if (k != enemyHorseIndex && playerPositions[k] == oldPosition && playerPositions[k] != -1 && playerPositions[k] != -2)
+                    {
+                        bool kIsBarbarian = k < 4;
+                        if (kIsBarbarian == enemyIsBarbarian)
+                        {
+                            playerPositions[k] = -1;
+                            if (players[k] != null && horseManager != null)
+                            {
+                                horseManager.UpdateHorseUI(k, -1, positionNames);
+                            }
+                        }
+                    }
+                }
+                
+                if (players[enemyHorseIndex] != null && horseManager != null)
+                {
+                    horseManager.UpdateHorseUI(enemyHorseIndex, -1, positionNames);
+                }
+            }
+            
+            // 빽도로 말을 잡았을 때는 추가 던질 기회 부여
+            bool isBackDoCapture = isBackDoTurn;
+            if (enemyHorsesToCapture.Count > 0 && isBackDoCapture)
+            {
+                canThrowAgain = true;
+                if (resultText != null)
+                {
+                    resultText.text = "적 말을 잡았습니다! 빽도로 추가 던질 기회 획득!";
+                }
+                Debug.Log("[MoveToSelectedPlatformInternal] 빽도로 적 말을 잡아서 추가 던질 기회 부여");
+            }
+            
+            // 같은 위치의 말들 위치 재계산 및 UI 업데이트
+            if (horseManager != null)
+            {
+                horseManager.RefreshHorsesAtPosition(finalPos, positionNames);
+            }
+            
+            // 사용된 이동을 pendingMovements에서 제거
+            if (usedMovement != YutOutcome.Nak && turnManager != null)
+            {
+                turnManager.RemovePendingMovement(usedMovement);
+            }
+            
+            // 빽도 턴 종료
+            Debug.Log($"[MoveToSelectedPlatformInternal] 빽도 이동 처리 완료, yield break");
+            isBackDoTurn = false;
+            isPlayerMoving = false;
+            yield break;
+        }
+        
+        Debug.Log($"[MoveToSelectedPlatformInternal] 일반 이동 로직으로 진행 - isBackDo: {isBackDo}, startPosition: {startPosition}, targetPlatformIndex: {targetPlatformIndex}");
         
         // 발판별로 이동 (목표 발판에 도착할 때까지)
         int maxSteps = 100; // 최대 이동 횟수 제한 (무한 루프 방지)
+        int actualMoveCount = 0; // 실제 이동 횟수 추적
         for (int i = 0; i < maxSteps; i++)
         {
             // 현재 위치가 목표 발판이면 이동 종료
@@ -1460,80 +2165,84 @@ public class YutGameManager : MonoBehaviour
             else if (currentPos == 22 && isC1Path) // C1 경로에서 EF3에 도착한 경우 F4로 분기
             {
                 nextPos = 27; // F4로 분기
+                isFPath = true; // F 경로로 설정
+            }
+            // F 경로에서 EF3에 도착한 경우 F4로 분기
+            else if (currentPos == 22 && isFPath) // F 경로에서 EF3에 도착한 경우 F4로 분기
+            {
+                nextPos = 27; // F4로 분기
             }
             else
             {
-                // 일반 경로 또는 중간 경로 (EF3를 지나갈 때는 E4로 진행)
+                // 일반 경로 또는 중간 경로
                 nextPos = GetNextPositionInPath(currentPos);
+                
+                // F 경로 추적: F1, F2, F4, F5를 지나가면 F 경로로 설정
+                if (currentPos == 25 || currentPos == 26 || currentPos == 27 || currentPos == 28 || nextPos == 25 || nextPos == 26 || nextPos == 27 || nextPos == 28)
+                {
+                    isFPath = true;
+                }
             }
             
             playerPositions[horseIndex] = nextPos;
             
+            // 실제 이동 횟수 추적 (분기는 제외)
+            bool isBranchMove = false;
+            if (currentPos == 5 && i == 0) // B1에서 시작
+            {
+                isBranchMove = true; // 분기는 거리 소모 안 함
+            }
+            else if (currentPos == 22 && i == 0) // EF3에서 시작
+            {
+                isBranchMove = true; // 분기는 거리 소모 안 함
+            }
+            else if (currentPos == 22 && isC1Path) // C1 경로에서 EF3에 도착
+            {
+                isBranchMove = true; // 분기는 거리 소모 안 함
+            }
+            else if (currentPos == 22 && isFPath) // F 경로에서 EF3에 도착
+            {
+                isBranchMove = true; // 분기는 거리 소모 안 함
+            }
+            
+            if (!isBranchMove)
+            {
+                actualMoveCount++; // 일반 이동은 1칸 소모
+            }
+            
+            // A1에 도착했는지 확인 (골인 조건은 A1 이동 애니메이션 완료 후에 확인)
+            if (nextPos == 0 && !passedA1)
+            {
+                passedA1 = true;
+                stepsToA1 = actualMoveCount;
+                Debug.Log($"[MoveToSelectedPlatformInternal] A1 도착. stepsToA1: {stepsToA1}, moveSteps: {moveSteps}, actualMoveCount: {actualMoveCount}");
+            }
+            
             // 함께 이동할 말들(업힌 말들)도 같은 발판으로 이동
+            // 단, 골인한 말(-2)은 제외
             foreach (int otherHorseIndex in horsesToMoveTogether)
             {
-                playerPositions[otherHorseIndex] = nextPos;
+                // 골인한 말(-2)은 이동하지 않음
+                if (playerPositions[otherHorseIndex] != -2)
+                {
+                    playerPositions[otherHorseIndex] = nextPos;
+                }
             }
             
             // 목표 발판에 도착했으면 이동 종료
             if (nextPos == targetPlatformIndex)
             {
                 isLastStep = true;
-                
-                // A0(인덱스 0)에 도착하면 말이 완주 완료 (사라짐)
-                if (nextPos == 0)
-                {
-                    // 말 비활성화
-                    if (players[horseIndex] != null)
-                    {
-                        players[horseIndex].gameObject.SetActive(false);
-                    }
-                    
-                    // 완주 처리 (-2: 완주 완료)
-                    playerPositions[horseIndex] = -2;
-                    
-                    // 함께 이동한 말들도 완주 처리
-                    foreach (int otherHorseIndex in horsesToMoveTogether)
-                    {
-                        if (players[otherHorseIndex] != null)
-                        {
-                            players[otherHorseIndex].gameObject.SetActive(false);
-                        }
-                        playerPositions[otherHorseIndex] = -2;
-                        
-                        // 완주한 말 수 증가
-                        if (otherHorseIndex < 4)
-                        {
-                            barbarianFinishedCount++;
-                        }
-                        else
-                        {
-                            knightFinishedCount++;
-                        }
-                    }
-                    
-                    // 완주한 말 수 증가
-                    if (horseIndex < 4)
-                    {
-                        barbarianFinishedCount++;
-                    }
-                    else
-                    {
-                        knightFinishedCount++;
-                    }
-                    
-                    // UI 업데이트
-                    UpdateUI();
-                }
             }
             if (isLastStep)
             {
                 // 도착한 발판에 적의 말이 있으면 잡기 (같은 팀 말 처리 전에)
+                // 단, 골인한 말(-2)은 제외
                 int finalPos = playerPositions[horseIndex];
                 List<int> enemyHorsesToCapture = new List<int>();
                 for (int j = 0; j < playerPositions.Length; j++)
                 {
-                    if (j != horseIndex && !horsesToMoveTogether.Contains(j) && playerPositions[j] == finalPos)
+                    if (j != horseIndex && !horsesToMoveTogether.Contains(j) && playerPositions[j] == finalPos && playerPositions[j] != -2)
                     {
                         bool jIsBarbarian = j < 4;
                         // 적의 말이면 잡기 목록에 추가
@@ -1637,9 +2346,10 @@ public class YutGameManager : MonoBehaviour
                 
                 // 도착한 발판에 같은 팀 말이 있으면 함께 이동 목록에 추가 (새로 업힘)
                 // finalPos는 이미 위에서 선언됨
+                // 단, 골인한 말(-2)은 제외
                 for (int j = 0; j < playerPositions.Length; j++)
                 {
-                    if (j != horseIndex && !horsesToMoveTogether.Contains(j) && playerPositions[j] == finalPos)
+                    if (j != horseIndex && !horsesToMoveTogether.Contains(j) && playerPositions[j] == finalPos && playerPositions[j] != -2)
                     {
                         bool jIsBarbarian = j < 4;
                         // 같은 팀이면 함께 이동 목록에 추가
@@ -1728,11 +2438,120 @@ public class YutGameManager : MonoBehaviour
                         horseManager.RefreshHorsesAtPosition(playerPositions[horseIndex], positionNames);
                     }
                     
+                    // A1에 도착했을 때 골인 조건 확인 (A1 이동 애니메이션 완료 후)
+                    // forceGoalIn이 true일 때만 골인 처리 (골인 버튼 클릭 시)
+                    if (playerPositions[horseIndex] == 0 && passedA1 && usedMovement != YutOutcome.Nak && startPosition != 0 && startPosition != -1)
+                    {
+                        // A1 이후 실제 이동 횟수 계산
+                        int remainingSteps = moveSteps - stepsToA1;
+                        
+                        Debug.Log($"[MoveToSelectedPlatformInternal] A1 이동 완료 후 골인 조건 확인. stepsToA1: {stepsToA1}, moveSteps: {moveSteps}, remainingSteps: {remainingSteps}, forceGoalIn: {forceGoalIn}");
+                        
+                        // forceGoalIn이 true이고, A1 이후에 한 칸 이상 더 이동 가능하면 골인 (remainingSteps > 1)
+                        // A1에 정확히 도착한 경우 (remainingSteps == 1)는 골인이 아님
+                        // A1을 클릭한 경우 (forceGoalIn == false)는 일반 이동으로 처리
+                        if (forceGoalIn && remainingSteps > 1)
+                        {
+                            // 골인 처리: 말 비활성화
+                            if (players[horseIndex] != null)
+                            {
+                                players[horseIndex].gameObject.SetActive(false);
+                            }
+                            
+                            // 골인 처리 (-2: 골인 완료)
+                            playerPositions[horseIndex] = -2;
+                            
+                            // 함께 이동한 말들도 골인 처리
+                            foreach (int otherHorseIndex in horsesToMoveTogether)
+                            {
+                                if (players[otherHorseIndex] != null)
+                                {
+                                    players[otherHorseIndex].gameObject.SetActive(false);
+                                }
+                                playerPositions[otherHorseIndex] = -2;
+                                
+                                // 골인한 말 수 증가
+                                if (otherHorseIndex < 4)
+                                {
+                                    barbarianFinishedCount++;
+                                }
+                                else
+                                {
+                                    knightFinishedCount++;
+                                }
+                            }
+                            
+                            // 골인한 말 수 증가
+                            if (horseIndex < 4)
+                            {
+                                barbarianFinishedCount++;
+                            }
+                            else
+                            {
+                                knightFinishedCount++;
+                            }
+                            
+                            // 골인 메시지 표시
+                            if (resultText != null)
+                            {
+                                string teamName = horseIndex < 4 ? "바바리안" : "기사";
+                                int finishedCount = horseIndex < 4 ? barbarianFinishedCount : knightFinishedCount;
+                                resultText.text = $"{teamName} {finishedCount}마리 골인!";
+                            }
+                            
+                            // UI 업데이트
+                            UpdateUI();
+                            
+                            // 사용된 이동을 pendingMovements에서 제거 (골인 처리 후)
+                            if (usedMovement != YutOutcome.Nak && turnManager != null)
+                            {
+                                turnManager.RemovePendingMovement(usedMovement);
+                            }
+                            
+                            // 다음 이동을 위해 상태 변수 리셋
+                            waitingForHorseSelection = false;
+                            waitingForPlatformSelection = false;
+                            currentHorseIndexForMove = -1;
+                            isBackDoTurn = false;
+                            currentGoalInMovement = YutOutcome.Nak;
+                            
+                            // 골인 버튼 숨김
+                            if (goalInButton != null)
+                            {
+                                goalInButton.gameObject.SetActive(false);
+                            }
+                            
+                            // 골인했으므로 이동 종료
+                            isPlayerMoving = false;
+                            
+                            // 대기 중인 이동이 남아있으면 턴을 종료하지 않음
+                            if (turnManager != null && turnManager.GetPendingMovements().Count > 0)
+                            {
+                                yield break; // 턴 종료하지 않고 리턴
+                            }
+                            
+                            // 대기 중인 이동이 없으면 턴 종료 (YutTurnManager에서 처리)
+                            yield break;
+                        }
+                        else
+                        {
+                            Debug.Log($"[MoveToSelectedPlatformInternal] A1에 정확히 도착했습니다. 골인이 아닙니다. remainingSteps: {remainingSteps}");
+                        }
+                    }
+                    
                     // 황금 발판인지 확인 (최종 발판에서만)
                     if (isLastStep && platformManager != null && playerPositions[horseIndex] == platformManager.GoldenPlatformIndex)
                     {
                         hasExtraThrow = true;
+                        canThrowAgain = true; // 즉시 던질 기회 제공
                         platformManager.RestorePlatformColor(platformManager.GoldenPlatformIndex);
+                        
+                        // 황금 발판 효과 메시지 표시
+                        if (resultText != null)
+                        {
+                            resultText.text = "황금 발판 효과! 추가 던질 기회 획득!";
+                        }
+                        
                         yield return new WaitForSeconds(0.5f);
                         platformManager.SelectRandomGoldenPlatform();
                     }
@@ -1756,6 +2575,32 @@ public class YutGameManager : MonoBehaviour
         waitingForPlatformSelection = false;
         currentHorseIndexForMove = -1;
         isBackDoTurn = false;
+        currentGoalInMovement = YutOutcome.Nak;
+        
+        // 골인 버튼 숨김
+        if (goalInButton != null)
+        {
+            goalInButton.gameObject.SetActive(false);
+        }
+        
+        // 황금 발판으로 인한 추가 던질 기회가 있으면 즉시 던지기 버튼 활성화
+        if (hasExtraThrow && canThrowAgain)
+        {
+            hasExtraThrow = false; // 플래그 리셋 (이미 canThrowAgain으로 전달됨)
+            
+            // 던지기 버튼 활성화
+            if (throwButton != null)
+            {
+                throwButton.interactable = true;
+            }
+            EnableTestButtons(true);
+            
+            // 대기 중인 이동이 없으면 턴 종료하지 않고 던지기 대기
+            if (turnManager != null && turnManager.GetPendingMovements().Count == 0)
+            {
+                yield break; // 턴 종료하지 않고 던지기 대기
+            }
+        }
         
         // 대기 중인 이동이 남아있으면 턴을 종료하지 않음 (ThrowAndMoveSequence의 while 루프가 계속 진행)
         if (turnManager != null && turnManager.GetPendingMovements().Count > 0)
@@ -1763,7 +2608,7 @@ public class YutGameManager : MonoBehaviour
             yield break; // 턴 종료하지 않고 리턴
         }
         
-        // 대기 중인 이동이 없으면 턴 종료
+        // 대기 중인 이동이 없고 추가 던질 기회도 없으면 턴 종료
         // 중요: MoveToSelectedPlatformInternal에서는 턴 변경을 하지 않음
         // 턴 변경은 ProcessPendingMovements 완료 후 YutTurnManager에서 처리됨
     }
@@ -1837,5 +2682,238 @@ public class YutGameManager : MonoBehaviour
             return selectionHandler.CheckBackDoSelection(hitObject);
         }
         return false;
+    }
+    
+    // 골인 버튼 상태 업데이트 (골인 가능한 말이 있는지 확인)
+    public void UpdateGoalInButtonState()
+    {
+        if (goalInButton == null) return;
+        
+        bool canGoalIn = false;
+        YutOutcome goalInMovement = YutOutcome.Nak;
+        int goalInHorseIndex = -1;
+        
+        // pendingMovements가 있고 (말 선택 대기 중이거나 발판 선택 대기 중일 때) 확인
+        if ((waitingForHorseSelection || waitingForPlatformSelection) && turnManager != null)
+        {
+            List<YutOutcome> pendingMovements = turnManager.GetPendingMovements();
+            if (pendingMovements.Count > 0)
+            {
+                // 발판 선택 대기 중이면 선택된 말만 확인
+                if (waitingForPlatformSelection && currentHorseIndexForMove >= 0)
+                {
+                    int horseIndex = currentHorseIndexForMove;
+                    int currentPosition = playerPositions[horseIndex];
+                    if (currentPosition != 0 && currentPosition != -1)
+                    {
+                        // 모든 골인 가능한 이동을 수집하고, 이동 칸수가 가장 적은 것을 선택
+                        YutOutcome bestMovement = YutOutcome.Nak;
+                        int minMoveSteps = int.MaxValue;
+                        
+                        foreach (YutOutcome movement in pendingMovements)
+                        {
+                            if (!IsBackDo(movement))
+                            {
+                                int calcPosition = currentPosition == -1 ? 0 : currentPosition;
+                                int moveSteps = YutGameUtils.GetMoveSteps((int)movement);
+                                List<int> positions = CalculateAvailablePositions(calcPosition, moveSteps);
+                                // 골인 조건: A1을 포함하고, A1 이후에 한 칸 이상 더 이동 가능한 경우
+                                if (positions.Contains(0))
+                                {
+                                    int originalMoveSteps = moveSteps;
+                                    int stepsToA1 = CalculateDistanceToA1(calcPosition);
+                                    if (stepsToA1 > 0 && stepsToA1 < originalMoveSteps)
+                                    {
+                                        int remainingSteps = originalMoveSteps - stepsToA1;
+                                        if (remainingSteps > 1)
+                                        {
+                                            // 이동 칸수가 더 적은 것을 선택
+                                            if (originalMoveSteps < minMoveSteps)
+                                            {
+                                                minMoveSteps = originalMoveSteps;
+                                                bestMovement = movement;
+                                                canGoalIn = true;
+                                                goalInMovement = movement;
+                                                goalInHorseIndex = horseIndex;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                // 말 선택 대기 중이면 모든 말 확인
+                else if (waitingForHorseSelection)
+                {
+                    List<int> availableHorses = GetAvailableHorsesForCurrentPlayer();
+                    // 모든 골인 가능한 이동을 수집하고, 이동 칸수가 가장 적은 것을 선택
+                    YutOutcome bestMovement = YutOutcome.Nak;
+                    int bestHorseIndex = -1;
+                    int minMoveSteps = int.MaxValue;
+                    
+                    foreach (int horseIndex in availableHorses)
+                    {
+                        int currentPosition = playerPositions[horseIndex];
+                        if (currentPosition == 0 || currentPosition == -1) continue;
+                        
+                        foreach (YutOutcome movement in pendingMovements)
+                        {
+                            if (!IsBackDo(movement))
+                            {
+                                int calcPosition = currentPosition == -1 ? 0 : currentPosition;
+                                int moveSteps = YutGameUtils.GetMoveSteps((int)movement);
+                                List<int> positions = CalculateAvailablePositions(calcPosition, moveSteps);
+                                // 골인 조건: A1을 포함하고, A1 이후에 한 칸 이상 더 이동 가능한 경우
+                                if (positions.Contains(0))
+                                {
+                                    int originalMoveSteps = moveSteps;
+                                    int stepsToA1 = CalculateDistanceToA1(calcPosition);
+                                    if (stepsToA1 > 0 && stepsToA1 < originalMoveSteps)
+                                    {
+                                        int remainingSteps = originalMoveSteps - stepsToA1;
+                                        if (remainingSteps > 1)
+                                        {
+                                            // 이동 칸수가 더 적은 것을 선택
+                                            if (originalMoveSteps < minMoveSteps)
+                                            {
+                                                minMoveSteps = originalMoveSteps;
+                                                bestMovement = movement;
+                                                bestHorseIndex = horseIndex;
+                                                canGoalIn = true;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (canGoalIn)
+                    {
+                        goalInMovement = bestMovement;
+                        goalInHorseIndex = bestHorseIndex;
+                    }
+                }
+            }
+        }
+        
+        // 골인 버튼 표시/숨김
+        if (canGoalIn)
+        {
+            goalInButton.gameObject.SetActive(true);
+            goalInButton.interactable = true;
+            currentGoalInMovement = goalInMovement;
+            Debug.Log($"[골인 버튼] 활성화됨 - 이동: {goalInMovement}, 말: {goalInHorseIndex}, waitingForHorseSelection: {waitingForHorseSelection}, waitingForPlatformSelection: {waitingForPlatformSelection}");
+            // 말 선택 대기 중이면 자동으로 말 선택할 수 있도록 horseIndex 저장하지 않음
+            // (버튼 클릭 시 자동으로 말 선택)
+        }
+        else
+        {
+            goalInButton.gameObject.SetActive(false);
+            currentGoalInMovement = YutOutcome.Nak;
+            Debug.Log($"[골인 버튼] 숨김 - waitingForHorseSelection: {waitingForHorseSelection}, waitingForPlatformSelection: {waitingForPlatformSelection}");
+            if (!waitingForPlatformSelection)
+            {
+                currentHorseIndexForMove = -1;
+            }
+        }
+    }
+    
+    // 골인 버튼 클릭 핸들러
+    public void OnGoalInButtonClicked()
+    {
+        if (!waitingForHorseSelection && !waitingForPlatformSelection)
+        {
+            Debug.LogWarning("골인 버튼: 말 선택 대기 중이 아닙니다.");
+            return;
+        }
+        
+        if (currentGoalInMovement == YutOutcome.Nak)
+        {
+            Debug.LogWarning("골인 버튼: 골인에 사용할 이동이 없습니다.");
+            return;
+        }
+        
+        int horseIndex = -1;
+        
+        // 말 선택 대기 중이면 자동으로 말 선택
+        if (waitingForHorseSelection)
+        {
+            // 골인 가능한 말 찾기
+            List<int> availableHorses = GetAvailableHorsesForCurrentPlayer();
+            foreach (int hIndex in availableHorses)
+            {
+                int horsePos = playerPositions[hIndex];
+                if (horsePos == 0 || horsePos == -1) continue;
+                
+                int calcPosition = horsePos == -1 ? 0 : horsePos;
+                int moveSteps = YutGameUtils.GetMoveSteps((int)currentGoalInMovement);
+                List<int> positions = CalculateAvailablePositions(calcPosition, moveSteps);
+                // 골인 조건: A1을 포함하고, A1 이후에 한 칸 이상 더 이동 가능한 경우
+                if (positions.Contains(0))
+                {
+                    int originalMoveSteps = moveSteps;
+                    int stepsToA1 = CalculateDistanceToA1(calcPosition);
+                    if (stepsToA1 > 0 && stepsToA1 < originalMoveSteps)
+                    {
+                        int remainingSteps = originalMoveSteps - stepsToA1;
+                        if (remainingSteps > 1)
+                        {
+                            horseIndex = hIndex;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (horseIndex < 0)
+            {
+                Debug.LogWarning("골인 버튼: 골인 가능한 말을 찾을 수 없습니다.");
+                return;
+            }
+            
+            // 말 선택 처리
+            HideSelectableHorses();
+            waitingForHorseSelection = false;
+            currentHorseIndexForMove = horseIndex;
+        }
+        else if (waitingForPlatformSelection)
+        {
+            horseIndex = currentHorseIndexForMove;
+            if (horseIndex < 0)
+            {
+                Debug.LogWarning("골인 버튼: 말이 선택되지 않았습니다.");
+                return;
+            }
+        }
+        else
+        {
+            Debug.LogWarning("골인 버튼: 말 선택 또는 발판 선택 대기 중이 아닙니다.");
+            return;
+        }
+        
+        int currentPosition = playerPositions[horseIndex];
+        
+        // 골인 조건 확인
+        if (currentPosition == 0 || currentPosition == -1)
+        {
+            Debug.LogWarning("골인 버튼: 시작 위치가 A1이거나 대기공간입니다.");
+            return;
+        }
+        
+        // A1로 골인 이동 시작 (forceGoalIn = true로 설정)
+        HideSelectablePlatforms();
+        waitingForPlatformSelection = false;
+        
+        // 골인 버튼을 통해 호출되므로 forceGoalIn = true로 설정
+        StartCoroutine(MoveToSelectedPlatformInternal(horseIndex, 0, currentGoalInMovement, true));
+        
+        // 골인 버튼 숨김
+        if (goalInButton != null)
+        {
+            goalInButton.gameObject.SetActive(false);
+        }
+        currentGoalInMovement = YutOutcome.Nak;
     }
 }

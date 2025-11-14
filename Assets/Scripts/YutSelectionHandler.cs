@@ -31,13 +31,6 @@ public class YutSelectionHandler : MonoBehaviour
         // 선택 대기 상태 해제
         gameManager.waitingForHorseSelection = false;
         
-        // 빽도 턴인 경우: 말 선택 후 바로 뒤로 이동
-        if (gameManager.isBackDoTurn)
-        {
-            gameManager.currentHorseIndexForMove = horseIndex;
-            return; // 빽도 처리는 ThrowAndMoveSequence에서 계속 진행
-        }
-        
         // 선택한 말의 현재 위치
         int currentPosition = gameManager.playerPositions[horseIndex];
 
@@ -45,7 +38,57 @@ public class YutSelectionHandler : MonoBehaviour
         List<int> availablePositions = new List<int>();
         
         List<YutOutcome> pendingMovements = gameManager.turnManager != null ? gameManager.turnManager.GetPendingMovements() : new List<YutOutcome>();
-        if (pendingMovements.Count > 0)
+        
+        // 빽도 턴이면 특수 위치에 따라 여러 경로 표시
+        if (gameManager.isBackDoTurn)
+        {
+            // 특수 위치에서 빽도: 여러 경로 선택 가능
+            if (currentPosition == 22) // EF3에서 빽도
+            {
+                availablePositions.Add(21); // E2
+                availablePositions.Add(26); // F2
+            }
+            else if (currentPosition == 15) // D1에서 빽도
+            {
+                availablePositions.Add(14); // C5
+                availablePositions.Add(24); // E5
+            }
+            else if (currentPosition == 0) // A1에서 빽도
+            {
+                availablePositions.Add(19); // D5
+                availablePositions.Add(28); // F5
+            }
+            else if (currentPosition == 20) // E1에서 빽도
+            {
+                availablePositions.Add(5); // B1로 이동
+            }
+            else if (currentPosition == 25) // F1에서 빽도
+            {
+                availablePositions.Add(10); // C1로 이동
+            }
+            else if (currentPosition == 27) // F4에서 빽도
+            {
+                availablePositions.Add(22); // EF3로 이동
+            }
+            else if (currentPosition == 28) // F5에서 빽도
+            {
+                availablePositions.Add(27); // F4로 이동
+            }
+            else if (currentPosition == 26) // F2에서 빽도
+            {
+                availablePositions.Add(25); // F1로 이동
+            }
+            else if (currentPosition > 0) // 일반 위치에서 빽도
+            {
+                // 일반 빽도: 뒤로 한 칸
+                int backPosition = currentPosition - 1;
+                if (backPosition >= 0)
+                {
+                    availablePositions.Add(backPosition);
+                }
+            }
+        }
+        else if (pendingMovements.Count > 0)
         {
             // 대기 중인 모든 이동에 대해 해당 말에서 이동 가능한 발판 계산
             bool hasBackDoAvailable = false;
@@ -81,33 +124,115 @@ public class YutSelectionHandler : MonoBehaviour
                 }
             }
             
-            // 빽도가 있고 다른 발판이 없으면 빽도만 처리
-            if (hasBackDoAvailable && availablePositions.Count == 0)
+            // 빽도가 있으면 특수 위치에 따라 여러 경로 추가
+            if (hasBackDoAvailable)
             {
-                // 빽도만 가능한 경우: 바로 빽도 처리
-                gameManager.isBackDoTurn = true;
-                gameManager.currentHorseIndexForMove = horseIndex;
-                return; // 빽도 처리는 ThrowAndMoveSequence의 while 루프에서 계속 진행
+                // 특수 위치에서 빽도: 여러 경로 선택 가능
+                if (currentPosition == 22) // EF3에서 빽도
+                {
+                    if (!availablePositions.Contains(21)) availablePositions.Add(21); // E2
+                    if (!availablePositions.Contains(26)) availablePositions.Add(26); // F2
+                }
+                else if (currentPosition == 15) // D1에서 빽도
+                {
+                    if (!availablePositions.Contains(14)) availablePositions.Add(14); // C5
+                    if (!availablePositions.Contains(24)) availablePositions.Add(24); // E5
+                }
+                else if (currentPosition == 0) // A1에서 빽도
+                {
+                    if (!availablePositions.Contains(19)) availablePositions.Add(19); // D5
+                    if (!availablePositions.Contains(28)) availablePositions.Add(28); // F5
+                }
+                else if (currentPosition == 20) // E1에서 빽도
+                {
+                    if (!availablePositions.Contains(5)) availablePositions.Add(5); // B1로 이동
+                }
+                else if (currentPosition == 25) // F1에서 빽도
+                {
+                    if (!availablePositions.Contains(10)) availablePositions.Add(10); // C1로 이동
+                }
+                else if (currentPosition == 27) // F4에서 빽도
+                {
+                    if (!availablePositions.Contains(22)) availablePositions.Add(22); // EF3로 이동
+                }
+                else if (currentPosition == 28) // F5에서 빽도
+                {
+                    if (!availablePositions.Contains(27)) availablePositions.Add(27); // F4로 이동
+                }
+                else if (currentPosition == 26) // F2에서 빽도
+                {
+                    if (!availablePositions.Contains(25)) availablePositions.Add(25); // F1로 이동
+                }
+                else if (currentPosition > 0) // 일반 위치에서 빽도
+                {
+                    // 일반 빽도: 바로 전 칸 추가
+                    int backPosition = currentPosition - 1;
+                    if (backPosition >= 0 && !availablePositions.Contains(backPosition))
+                    {
+                        availablePositions.Add(backPosition);
+                    }
+                }
             }
         }
         else
         {
             // 일반 경우: 현재 moveSteps로만 이동
+            // 빽도 턴은 위에서 이미 처리됨
             availablePositions = gameManager.CalculateAvailablePositions(currentPosition, gameManager.currentMoveSteps);
         }
         
         // 빽도가 pendingMovements에 있는지 확인 (발판 선택 전에)
-        if (pendingMovements.Count > 0 && currentPosition > 0)
+        // 빽도 턴은 위에서 이미 처리됨
+        if (!gameManager.isBackDoTurn && pendingMovements.Count > 0)
         {
             foreach (YutOutcome movement in pendingMovements)
             {
                 if (gameManager.IsBackDo(movement))
                 {
-                    // 빽도는 바로 전 칸 추가
-                    int backPosition = currentPosition - 1;
-                    if (backPosition >= 0 && !availablePositions.Contains(backPosition))
+                    // 특수 위치에서 빽도: 여러 경로 선택 가능
+                    if (currentPosition == 22) // EF3에서 빽도
                     {
-                        availablePositions.Add(backPosition);
+                        if (!availablePositions.Contains(21)) availablePositions.Add(21); // E2
+                        if (!availablePositions.Contains(26)) availablePositions.Add(26); // F2
+                    }
+                    else if (currentPosition == 15) // D1에서 빽도
+                    {
+                        if (!availablePositions.Contains(14)) availablePositions.Add(14); // C5
+                        if (!availablePositions.Contains(24)) availablePositions.Add(24); // E5
+                    }
+                    else if (currentPosition == 0) // A1에서 빽도
+                    {
+                        if (!availablePositions.Contains(19)) availablePositions.Add(19); // D5
+                        if (!availablePositions.Contains(28)) availablePositions.Add(28); // F5
+                    }
+                    else if (currentPosition == 20) // E1에서 빽도
+                    {
+                        if (!availablePositions.Contains(5)) availablePositions.Add(5); // B1로 이동
+                    }
+                    else if (currentPosition == 25) // F1에서 빽도
+                    {
+                        if (!availablePositions.Contains(10)) availablePositions.Add(10); // C1로 이동
+                    }
+                    else if (currentPosition == 27) // F4에서 빽도
+                    {
+                        if (!availablePositions.Contains(22)) availablePositions.Add(22); // EF3로 이동
+                    }
+                    else if (currentPosition == 28) // F5에서 빽도
+                    {
+                        if (!availablePositions.Contains(27)) availablePositions.Add(27); // F4로 이동
+                    }
+                    else if (currentPosition == 26) // F2에서 빽도
+                    {
+                        if (!availablePositions.Contains(25)) availablePositions.Add(25); // F1로 이동
+                    }
+                    else if (currentPosition > 0) // 일반 위치에서 빽도
+                    {
+                        // 일반 빽도: 바로 전 칸 추가
+                        int backPosition = currentPosition - 1;
+                        if (backPosition >= 0 && !availablePositions.Contains(backPosition))
+                        {
+                            availablePositions.Add(backPosition);
+                        }
                     }
                     break;
                 }
@@ -124,10 +249,46 @@ public class YutSelectionHandler : MonoBehaviour
             return;
         }
         
+        // 골인 조건을 만족하는 이동이 있는지 확인
+        bool canGoalIn = false;
+        YutOutcome goalInMovement = YutOutcome.Nak;
+        if (pendingMovements.Count > 0 && currentPosition != 0 && currentPosition != -1)
+        {
+            foreach (YutOutcome movement in pendingMovements)
+            {
+                if (!gameManager.IsBackDo(movement))
+                {
+                    int calcPosition = currentPosition == -1 ? 0 : currentPosition;
+                    int moveSteps = YutGameUtils.GetMoveSteps((int)movement);
+                    List<int> positions = gameManager.CalculateAvailablePositions(calcPosition, moveSteps);
+                    // 골인 조건: A1만 표시되고 다른 위치가 없는 경우
+                    if (positions.Count == 1 && positions.Contains(0))
+                    {
+                        canGoalIn = true;
+                        goalInMovement = movement;
+                        break;
+                    }
+                }
+            }
+        }
+        
         // 발판 선택 모드로 전환 (빽도가 있으면 바로 전 칸도 표시됨)
-        gameManager.ShowSelectablePlatforms(availablePositions);
         gameManager.currentHorseIndexForMove = horseIndex;
         gameManager.waitingForPlatformSelection = true;
+        
+        // 골인 버튼 활성화/비활성화 (발판 선택 대기 상태 설정 후 골인 버튼 상태 업데이트)
+        // waitingForPlatformSelection이 true가 된 후에 호출해야 골인 버튼이 제대로 활성화됨
+        gameManager.UpdateGoalInButtonState();
+        
+        // 골인 버튼이 활성화되어 있으면 A1만 표시하고 다른 위치는 제거
+        if (gameManager.goalInButton != null && gameManager.goalInButton.gameObject.activeSelf)
+        {
+            availablePositions.Clear();
+            availablePositions.Add(0); // A1만 표시
+            Debug.Log($"[골인 버튼 활성화] A1만 표시: {string.Join(", ", availablePositions)}");
+        }
+        
+        gameManager.ShowSelectablePlatforms(availablePositions);
         
         string horseName = YutGameUtils.GetHorseName(horseIndex);
         if (gameManager.resultText != null)
@@ -135,7 +296,14 @@ public class YutSelectionHandler : MonoBehaviour
             if (pendingMovements.Count > 0)
             {
                 string movementsText = string.Join(", ", pendingMovements.Select(m => YutGameUtils.OutcomeToKorean(m)));
-                gameManager.resultText.text = $"{horseName} 선택됨 - 이동할 발판을 선택하세요 ({movementsText} 중 선택)";
+                if (canGoalIn)
+                {
+                    gameManager.resultText.text = $"{horseName} 선택됨 - 이동할 발판을 선택하거나 골인 버튼을 클릭하세요 ({movementsText} 중 선택)";
+                }
+                else
+                {
+                    gameManager.resultText.text = $"{horseName} 선택됨 - 이동할 발판을 선택하세요 ({movementsText} 중 선택)";
+                }
             }
             else
             {
@@ -161,6 +329,13 @@ public class YutSelectionHandler : MonoBehaviour
         // 발판 선택 표시 제거
         gameManager.HideSelectablePlatforms();
         
+        // 골인 버튼 숨김
+        if (gameManager.goalInButton != null)
+        {
+            gameManager.goalInButton.gameObject.SetActive(false);
+        }
+        gameManager.currentGoalInMovement = YutOutcome.Nak;
+        
         // 선택 대기 상태 해제
         gameManager.waitingForPlatformSelection = false;
         
@@ -168,19 +343,197 @@ public class YutSelectionHandler : MonoBehaviour
         int horseIndexToMove = gameManager.currentHorseIndexForMove;
         int currentPosition = gameManager.playerPositions[horseIndexToMove];
         
+        // 대기 중인 이동 목록 가져오기 (빽도 턴 처리에서도 사용)
+        List<YutOutcome> pendingMovementsList = gameManager.turnManager != null ? gameManager.turnManager.GetPendingMovements() : new List<YutOutcome>();
+        
+        // 빽도 턴인 경우: 특수 위치에서 여러 경로 선택 가능
+        if (gameManager.isBackDoTurn)
+        {
+            bool isValidBackDoPosition = false;
+            
+            // 특수 위치에서 빽도: 여러 경로 선택 가능
+            if (currentPosition == 22) // EF3에서 빽도
+            {
+                if (platformIndex == 21 || platformIndex == 26) // E2 또는 F2
+                {
+                    isValidBackDoPosition = true;
+                }
+            }
+            else if (currentPosition == 15) // D1에서 빽도
+            {
+                if (platformIndex == 14 || platformIndex == 24) // C5 또는 E5
+                {
+                    isValidBackDoPosition = true;
+                }
+            }
+            else if (currentPosition == 0) // A1에서 빽도
+            {
+                if (platformIndex == 19 || platformIndex == 28) // D5 또는 F5
+                {
+                    isValidBackDoPosition = true;
+                }
+            }
+            else if (currentPosition == 20) // E1에서 빽도
+            {
+                if (platformIndex == 5) // B1로 이동
+                {
+                    isValidBackDoPosition = true;
+                }
+            }
+            else if (currentPosition == 25) // F1에서 빽도
+            {
+                if (platformIndex == 10) // C1로 이동
+                {
+                    isValidBackDoPosition = true;
+                }
+            }
+            else if (currentPosition == 27) // F4에서 빽도
+            {
+                if (platformIndex == 22) // EF3로 이동
+                {
+                    isValidBackDoPosition = true;
+                }
+            }
+            else if (currentPosition == 28) // F5에서 빽도
+            {
+                if (platformIndex == 27) // F4로 이동
+                {
+                    isValidBackDoPosition = true;
+                }
+            }
+            else if (currentPosition == 26) // F2에서 빽도
+            {
+                if (platformIndex == 25) // F1로 이동
+                {
+                    isValidBackDoPosition = true;
+                }
+            }
+            else if (currentPosition > 0) // 일반 위치에서 빽도
+            {
+                int backPosition = currentPosition - 1;
+                if (platformIndex == backPosition)
+                {
+                    isValidBackDoPosition = true;
+                }
+            }
+            
+            if (isValidBackDoPosition)
+            {
+                // 빽도 이동 처리: 선택한 발판으로 직접 이동
+                // 빽도도 발판 선택 방식으로 처리하므로 MoveToSelectedPlatform 사용
+                YutOutcome backDoMovement = YutOutcome.Nak;
+                foreach (YutOutcome movement in pendingMovementsList)
+                {
+                    if (gameManager.IsBackDo(movement))
+                    {
+                        backDoMovement = movement;
+                        break;
+                    }
+                }
+                
+                Debug.Log($"[YutSelectionHandler] 빽도 이동 시작 - 말: {horseIndexToMove}, 현재 위치: {currentPosition}, 목표 위치: {platformIndex}, backDoMovement: {backDoMovement}, isBackDoTurn 설정 전: {gameManager.isBackDoTurn}");
+                
+                // 빽도 이동을 위해 isBackDoTurn 플래그 설정
+                gameManager.isBackDoTurn = true;
+                
+                Debug.Log($"[YutSelectionHandler] 빽도 이동 호출 - isBackDoTurn: {gameManager.isBackDoTurn}");
+                
+                if (gameManager.movementManager != null)
+                {
+                    gameManager.StartCoroutine(gameManager.movementManager.MoveToSelectedPlatform(horseIndexToMove, platformIndex, backDoMovement));
+                }
+                else
+                {
+                    gameManager.StartCoroutine(gameManager.MoveToSelectedPlatformInternal(horseIndexToMove, platformIndex, backDoMovement));
+                }
+                return;
+            }
+            else
+            {
+                Debug.LogWarning($"빽도: 선택한 발판 {platformIndex}는 유효한 빽도 경로가 아닙니다. (현재 위치: {currentPosition})");
+                return;
+            }
+        }
+        
         // 대기 중인 이동이 있으면, 선택한 발판에 도달하는 이동을 찾아서 저장 (이동 완료 후 제거)
         YutOutcome usedMovement = YutOutcome.Nak;
-        List<YutOutcome> pendingMovementsList = gameManager.turnManager != null ? gameManager.turnManager.GetPendingMovements() : new List<YutOutcome>();
         if (pendingMovementsList.Count > 0)
         {
             // 선택한 발판에 도달하는 이동 찾기
             foreach (YutOutcome movement in pendingMovementsList)
             {
-                // 빽도인 경우: 바로 전 칸인지 확인
+                // 빽도인 경우: 특수 위치에서 여러 경로 선택 가능
                 if (gameManager.IsBackDo(movement))
                 {
-                    int backPosition = currentPosition - 1;
-                    if (platformIndex == backPosition)
+                    bool isValidBackDoPosition = false;
+                    
+                    // 특수 위치에서 빽도: 여러 경로 선택 가능
+                    if (currentPosition == 22) // EF3에서 빽도
+                    {
+                        if (platformIndex == 21 || platformIndex == 26) // E2 또는 F2
+                        {
+                            isValidBackDoPosition = true;
+                        }
+                    }
+                    else if (currentPosition == 15) // D1에서 빽도
+                    {
+                        if (platformIndex == 14 || platformIndex == 24) // C5 또는 E5
+                        {
+                            isValidBackDoPosition = true;
+                        }
+                    }
+                    else if (currentPosition == 0) // A1에서 빽도
+                    {
+                        if (platformIndex == 19 || platformIndex == 28) // D5 또는 F5
+                        {
+                            isValidBackDoPosition = true;
+                        }
+                    }
+                    else if (currentPosition == 20) // E1에서 빽도
+                    {
+                        if (platformIndex == 5) // B1로 이동
+                        {
+                            isValidBackDoPosition = true;
+                        }
+                    }
+                    else if (currentPosition == 25) // F1에서 빽도
+                    {
+                        if (platformIndex == 10) // C1로 이동
+                        {
+                            isValidBackDoPosition = true;
+                        }
+                    }
+                    else if (currentPosition == 27) // F4에서 빽도
+                    {
+                        if (platformIndex == 22) // EF3로 이동
+                        {
+                            isValidBackDoPosition = true;
+                        }
+                    }
+                    else if (currentPosition == 28) // F5에서 빽도
+                    {
+                        if (platformIndex == 27) // F4로 이동
+                        {
+                            isValidBackDoPosition = true;
+                        }
+                    }
+                    else if (currentPosition == 26) // F2에서 빽도
+                    {
+                        if (platformIndex == 25) // F1로 이동
+                        {
+                            isValidBackDoPosition = true;
+                        }
+                    }
+                    else if (currentPosition > 0) // 일반 위치에서 빽도
+                    {
+                        int backPosition = currentPosition - 1;
+                        if (platformIndex == backPosition)
+                        {
+                            isValidBackDoPosition = true;
+                        }
+                    }
+                    
+                    if (isValidBackDoPosition)
                     {
                         usedMovement = movement;
                         break;
@@ -215,6 +568,7 @@ public class YutSelectionHandler : MonoBehaviour
                 {
                     gameManager.turnManager.RemovePendingMovement(usedMovement);
                 }
+                // 빽도 이동을 위해 isBackDoTurn 플래그 설정
                 gameManager.isBackDoTurn = true;
                 // 빽도 이동은 MoveToSelectedPlatform 대신 MoveHorseBackward 사용
                 if (gameManager.movementManager != null)

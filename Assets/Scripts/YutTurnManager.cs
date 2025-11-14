@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 public class YutTurnManager : MonoBehaviour
 {
@@ -205,12 +206,190 @@ public class YutTurnManager : MonoBehaviour
         
         // 저장된 윷/모가 있고, 도/개/걸/빽도가 나왔을 때: 둘 다 이동 가능하게 (순서 자유)
         // 또는 pendingMovements에 이미 윷/모가 있고, 도/개/걸/빽도가 나왔을 때도 추가
+        // 단, 빽도는 pendingMovements에 추가하지 않고 바로 빽도 처리 로직으로 감
         if (hasSavedYutOutcome)
         {
-            // 저장된 윷/모와 새로 나온 결과를 대기 목록에 추가
-            pendingMovements.Add(savedYutOutcome);
+            if (isBackDo)
+            {
+                // 저장된 윷/모가 있고 빽도가 나온 경우
+                // 발판에 말이 있는지 확인
+                List<int> savedYutAvailableHorses = gameManager.GetAvailableHorsesForCurrentPlayer();
+                List<int> horsesOnBoard = new List<int>();
+                foreach (int horseIndex in savedYutAvailableHorses)
+                {
+                    int position = gameManager.playerPositions[horseIndex];
+                    // 발판 위에 있는 말만 (0 이상, 완주(-2) 제외, 대기공간(-1) 제외)
+                    if (position > 0 && position < gameManager.boardPositions.Length)
+                    {
+                        horsesOnBoard.Add(horseIndex);
+                    }
+                }
+                
+                if (horsesOnBoard.Count > 0)
+                {
+                    // 발판에 말이 있으면: 윷/모 먼저 처리
+                    pendingMovements.Add(savedYutOutcome);
+                    hasSavedYutOutcome = false;
+                    
+                    // 윷/모 먼저 처리
+                    if (gameManager.resultText != null && pendingMovements.Count >= 1)
+                    {
+                        string savedText = YutGameUtils.OutcomeToKorean(pendingMovements[0]);
+                        gameManager.resultText.text = $"{savedText} 이동할 수 있습니다. 이동할 말을 선택하세요";
+                    }
+                    
+                    // 대기 중인 이동이 모두 처리될 때까지 반복
+                    turnChangedInMoveToPlatform = false; // 플래그 초기화
+                    yield return StartCoroutine(ProcessPendingMovements());
+                    
+                    // 모든 이동 완료 후 빽도 처리
+                    if (turnChangedInMoveToPlatform)
+                    {
+                        gameManager.isPlayerMoving = false;
+                        if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
+                        gameManager.EnableTestButtons(true);
+                        yield break;
+                    }
+                    
+                    // 추가 던질 기회가 있으면 빽도 처리를 하지 않음
+                    if (gameManager.canThrowAgain)
+                    {
+                        if (!testOutcome.HasValue && gameManager.yutThrowController != null)
+                        {
+                            yield return StartCoroutine(gameManager.yutThrowController.ResetYutToStartPositionCoroutine());
+                            yield return new WaitForSeconds(0.3f);
+                        }
+                        
+                        gameManager.UpdateUI();
+                        gameManager.isPlayerMoving = false;
+                        if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
+                        gameManager.EnableTestButtons(true);
+                        yield break;
+                    }
+                    
+                    // 빽도 처리 (윷/모 처리 후)
+                    // isBackDo가 여전히 true이므로 아래의 빽도 처리 블록으로 계속 진행
+                    // hasSavedYutOutcome은 이미 false로 설정되어 있으므로 210줄의 if 블록을 건너뛰고
+                    // 530줄의 if (isBackDo) 블록으로 진행
+                }
+                else
+                {
+                    // 발판에 말이 없으면: 무조건 윷/모 먼저 처리
+                    pendingMovements.Add(savedYutOutcome);
+                    hasSavedYutOutcome = false;
+                    
+                    // 윷/모 먼저 처리
+                    if (gameManager.resultText != null && pendingMovements.Count >= 1)
+                    {
+                        string savedText = YutGameUtils.OutcomeToKorean(pendingMovements[0]);
+                        gameManager.resultText.text = $"{savedText} 이동할 수 있습니다. 이동할 말을 선택하세요";
+                    }
+                    
+                    // 대기 중인 이동이 모두 처리될 때까지 반복
+                    turnChangedInMoveToPlatform = false; // 플래그 초기화
+                    yield return StartCoroutine(ProcessPendingMovements());
+                    
+                    // 모든 이동 완료 후 빽도 처리
+                    if (turnChangedInMoveToPlatform)
+                    {
+                        gameManager.isPlayerMoving = false;
+                        if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
+                        gameManager.EnableTestButtons(true);
+                        yield break;
+                    }
+                    
+                    // 추가 던질 기회가 있으면 빽도 처리를 하지 않음
+                    if (gameManager.canThrowAgain)
+                    {
+                        if (!testOutcome.HasValue && gameManager.yutThrowController != null)
+                        {
+                            yield return StartCoroutine(gameManager.yutThrowController.ResetYutToStartPositionCoroutine());
+                            yield return new WaitForSeconds(0.3f);
+                        }
+                        
+                        gameManager.UpdateUI();
+                        gameManager.isPlayerMoving = false;
+                        if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
+                        gameManager.EnableTestButtons(true);
+                        yield break;
+                    }
+                    
+                    // 빽도 처리 (윷/모 처리 후)
+                    // isBackDo가 여전히 true이므로 아래의 빽도 처리 블록으로 계속 진행
+                    // hasSavedYutOutcome은 이미 false로 설정되어 있으므로 210줄의 if 블록을 건너뛰고
+                    // 530줄의 if (isBackDo) 블록으로 진행
+                }
+            }
+            else
+            {
+                // 저장된 윷/모와 새로 나온 결과를 대기 목록에 추가 (빽도 제외)
+                pendingMovements.Add(savedYutOutcome);
+                pendingMovements.Add(outcome);
+                hasSavedYutOutcome = false;
+                
+                if (gameManager.resultText != null && pendingMovements.Count >= 2)
+                {
+                    string savedText = YutGameUtils.OutcomeToKorean(pendingMovements[0]);
+                    string newText = YutGameUtils.OutcomeToKorean(pendingMovements[1]);
+                    gameManager.resultText.text = $"{savedText}와 {newText} 둘 다 이동할 수 있습니다. 이동할 말을 선택하세요";
+                }
+                else if (gameManager.resultText != null)
+                {
+                    gameManager.resultText.text = $"{YutGameUtils.OutcomeToKorean(pendingMovements[pendingMovements.Count - 1])} 이동할 수 있습니다. 이동할 말을 선택하세요";
+                }
+                
+                // 대기 중인 이동이 모두 처리될 때까지 반복
+                turnChangedInMoveToPlatform = false; // 플래그 초기화
+                yield return StartCoroutine(ProcessPendingMovements());
+                
+                // 모든 이동 완료 후 턴 종료
+                if (turnChangedInMoveToPlatform)
+                {
+                    gameManager.isPlayerMoving = false;
+                    if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
+                    gameManager.EnableTestButtons(true);
+                    yield break;
+                }
+                
+                // 추가 던질 기회가 있으면 턴을 변경하지 않음
+                if (gameManager.canThrowAgain)
+                {
+                    if (!testOutcome.HasValue && gameManager.yutThrowController != null)
+                    {
+                        yield return StartCoroutine(gameManager.yutThrowController.ResetYutToStartPositionCoroutine());
+                        yield return new WaitForSeconds(0.3f);
+                    }
+                    
+                    gameManager.UpdateUI();
+                    gameManager.isPlayerMoving = false;
+                    if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
+                    gameManager.EnableTestButtons(true);
+                    yield break;
+                }
+                
+                gameManager.canThrowAgain = false;
+                
+                if (!testOutcome.HasValue && gameManager.yutThrowController != null)
+                {
+                    yield return StartCoroutine(gameManager.yutThrowController.ResetYutToStartPositionCoroutine());
+                    yield return new WaitForSeconds(0.3f);
+                }
+                
+                // 턴 변경
+                gameManager.ChangeTurn();
+                turnChangedInMoveToPlatform = true; // 턴 변경 플래그 설정 (YutTurnManager에서 변경했으므로)
+                gameManager.UpdateUI();
+                gameManager.isPlayerMoving = false;
+                
+                if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
+                gameManager.EnableTestButtons(true);
+                yield break;
+            }
+        }
+        else if (pendingMovements.Count > 0 && (yutResult >= 1 && yutResult <= 3) && !isBackDo)
+        {
+            // pendingMovements에 이미 윷/모가 있고, 도/개/걸이 나온 경우: 추가 (빽도 제외)
             pendingMovements.Add(outcome);
-            hasSavedYutOutcome = false;
             
             if (gameManager.resultText != null && pendingMovements.Count >= 2)
             {
@@ -270,72 +449,9 @@ public class YutTurnManager : MonoBehaviour
             gameManager.EnableTestButtons(true);
             yield break;
         }
-        else if (pendingMovements.Count > 0 && ((yutResult >= 1 && yutResult <= 3) || isBackDo))
+        else if (pendingMovements.Count == 0 && (yutResult >= 1 && yutResult <= 3) && !isBackDo)
         {
-            // pendingMovements에 이미 윷/모가 있고, 도/개/걸/빽도가 나온 경우: 추가
-            pendingMovements.Add(outcome);
-            
-            if (gameManager.resultText != null && pendingMovements.Count >= 2)
-            {
-                string savedText = YutGameUtils.OutcomeToKorean(pendingMovements[0]);
-                string newText = YutGameUtils.OutcomeToKorean(pendingMovements[1]);
-                gameManager.resultText.text = $"{savedText}와 {newText} 둘 다 이동할 수 있습니다. 이동할 말을 선택하세요";
-            }
-            else if (gameManager.resultText != null)
-            {
-                gameManager.resultText.text = $"{YutGameUtils.OutcomeToKorean(pendingMovements[pendingMovements.Count - 1])} 이동할 수 있습니다. 이동할 말을 선택하세요";
-            }
-            
-            // 대기 중인 이동이 모두 처리될 때까지 반복
-            turnChangedInMoveToPlatform = false; // 플래그 초기화
-            yield return StartCoroutine(ProcessPendingMovements());
-            
-            // 모든 이동 완료 후 턴 종료
-            if (turnChangedInMoveToPlatform)
-            {
-                gameManager.isPlayerMoving = false;
-                if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
-                gameManager.EnableTestButtons(true);
-                yield break;
-            }
-            
-            // 추가 던질 기회가 있으면 턴을 변경하지 않음
-            if (gameManager.canThrowAgain)
-            {
-                if (!testOutcome.HasValue && gameManager.yutThrowController != null)
-                {
-                    yield return StartCoroutine(gameManager.yutThrowController.ResetYutToStartPositionCoroutine());
-                    yield return new WaitForSeconds(0.3f);
-                }
-                
-                gameManager.UpdateUI();
-                gameManager.isPlayerMoving = false;
-                if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
-                gameManager.EnableTestButtons(true);
-                yield break;
-            }
-            
-            gameManager.canThrowAgain = false;
-            
-            if (!testOutcome.HasValue && gameManager.yutThrowController != null)
-            {
-                yield return StartCoroutine(gameManager.yutThrowController.ResetYutToStartPositionCoroutine());
-                yield return new WaitForSeconds(0.3f);
-            }
-            
-            // 턴 변경
-            gameManager.ChangeTurn();
-            turnChangedInMoveToPlatform = true; // 턴 변경 플래그 설정 (YutTurnManager에서 변경했으므로)
-            gameManager.UpdateUI();
-            gameManager.isPlayerMoving = false;
-            
-            if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
-            gameManager.EnableTestButtons(true);
-            yield break;
-        }
-        else if (pendingMovements.Count == 0 && ((yutResult >= 1 && yutResult <= 3) || isBackDo))
-        {
-            // pendingMovements가 비어있고 도/개/걸/빽도가 나온 경우: pendingMovements에 추가하여 처리
+            // pendingMovements가 비어있고 도/개/걸이 나온 경우: pendingMovements에 추가하여 처리 (빽도 제외)
             pendingMovements.Add(outcome);
             
             // 대기 중인 이동이 모두 처리될 때까지 반복
@@ -387,7 +503,7 @@ public class YutTurnManager : MonoBehaviour
         }
 
         // 2단계: 이동 가능한 발판 표시 및 플레이어 선택 대기
-        // 빽도 처리: 빽도면 뒤로 한 칸 이동 (말 선택 필요)
+        // 빽도 처리: 빽도면 뒤로 한 칸 이동 (말 선택 → 발판 선택 방식)
         if (isBackDo)
         {
             gameManager.isBackDoTurn = true;
@@ -395,11 +511,13 @@ public class YutTurnManager : MonoBehaviour
             // 현재 턴의 플레이어(바바리안 또는 기사)의 모든 말 중에서 선택 가능한 말 찾기
             List<int> backDoAvailableHorses = gameManager.GetAvailableHorsesForCurrentPlayer();
             
-            // 뒤로 갈 수 있는 말만 필터링 (위치가 0보다 큰 말)
+            // 뒤로 갈 수 있는 말만 필터링 (위치가 0보다 큰 말, 발판 위에 있는 말)
             List<int> horsesCanMoveBack = new List<int>();
             foreach (int horseIndex in backDoAvailableHorses)
             {
-                if (gameManager.playerPositions[horseIndex] > 0)
+                int position = gameManager.playerPositions[horseIndex];
+                // 발판 위에 있는 말만 (0 이상, 완주(-2) 제외, 대기공간(-1) 제외)
+                if (position > 0 && position < gameManager.boardPositions.Length)
                 {
                     horsesCanMoveBack.Add(horseIndex);
                 }
@@ -407,9 +525,18 @@ public class YutTurnManager : MonoBehaviour
             
             if (horsesCanMoveBack.Count > 0)
             {
-                // 뒤로 갈 수 있는 말 선택
+                // 빽도도 도/개/걸처럼 말 선택 → 발판 선택 방식으로 처리
+                gameManager.currentMoveSteps = 1; // 빽도는 뒤로 1칸
+                
+                // 말 선택 모드로 전환
                 gameManager.ShowSelectableHorses(horsesCanMoveBack);
                 gameManager.waitingForHorseSelection = true;
+                
+                if (gameManager.resultText != null)
+                {
+                    string playerName = playerNames[currentPlayerIndex];
+                    gameManager.resultText.text = $"{playerName}의 윷 결과: 빽도 - 이동할 말을 선택하세요";
+                }
                 
                 // 말 선택 대기
                 while (gameManager.waitingForHorseSelection)
@@ -417,22 +544,19 @@ public class YutTurnManager : MonoBehaviour
                     yield return null;
                 }
                 
-                // 선택된 말 뒤로 이동
-                int selectedHorseIndex = gameManager.currentHorseIndexForMove;
-                gameManager.currentHorseIndexForMove = -1;
-                gameManager.isBackDoTurn = false;
-                
-                if (selectedHorseIndex >= 0 && selectedHorseIndex < gameManager.players.Length)
+                // 발판 선택 대기
+                while (gameManager.waitingForPlatformSelection)
                 {
-                    if (gameManager.movementManager != null)
-                    {
-                        yield return StartCoroutine(gameManager.movementManager.MoveHorseBackward(selectedHorseIndex, 1));
-                    }
-                    else
-                    {
-                        yield return StartCoroutine(gameManager.MoveHorseBackwardInternal(selectedHorseIndex, 1));
-                    }
+                    yield return null;
                 }
+                
+                // 이동 완료 대기
+                while (gameManager.isPlayerMoving)
+                {
+                    yield return null;
+                }
+                
+                gameManager.isBackDoTurn = false;
             }
             else
             {
@@ -440,24 +564,100 @@ public class YutTurnManager : MonoBehaviour
                 gameManager.isBackDoTurn = false;
                 if (gameManager.resultText != null)
                 {
-                    gameManager.resultText.text = "뒤로 갈 수 있는 말이 없습니다.";
+                    gameManager.resultText.text = "빽도! 하지만 발판 위에 말이 없어 턴이 넘어갑니다.";
                 }
             }
             
-            // 빽도 처리 완료 후 턴 종료
-            if (gameManager.yutThrowController != null)
+            // 빽도 처리 완료 후 pendingMovements가 있으면 처리, 없으면 턴 종료
+            if (pendingMovements.Count > 0)
             {
-                yield return StartCoroutine(gameManager.yutThrowController.ResetYutToStartPositionCoroutine());
-                yield return new WaitForSeconds(0.3f);
+                // 저장된 윷/모가 있는 경우: pendingMovements 처리
+                // 단, 빽도로 말을 잡아서 추가 던질 기회가 생긴 경우에는 메시지를 덮어쓰지 않음
+                if (gameManager.resultText != null && pendingMovements.Count > 0 && !gameManager.canThrowAgain)
+                {
+                    string movementsText = string.Join(", ", pendingMovements.Select(m => YutGameUtils.OutcomeToKorean(m)));
+                    gameManager.resultText.text = $"빽도 처리 완료. 이제 {movementsText} 이동할 수 있습니다.";
+                }
+                
+                // 대기 중인 이동이 모두 처리될 때까지 반복
+                turnChangedInMoveToPlatform = false; // 플래그 초기화
+                yield return StartCoroutine(ProcessPendingMovements());
+                
+                // 모든 이동 완료 후 턴 종료
+                if (turnChangedInMoveToPlatform)
+                {
+                    gameManager.isPlayerMoving = false;
+                    if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
+                    gameManager.EnableTestButtons(true);
+                    yield break;
+                }
+                
+                // 추가 던질 기회가 있으면 턴을 변경하지 않음
+                if (gameManager.canThrowAgain)
+                {
+                    if (!testOutcome.HasValue && gameManager.yutThrowController != null)
+                    {
+                        yield return StartCoroutine(gameManager.yutThrowController.ResetYutToStartPositionCoroutine());
+                        yield return new WaitForSeconds(0.3f);
+                    }
+                    
+                    gameManager.UpdateUI();
+                    gameManager.isPlayerMoving = false;
+                    if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
+                    gameManager.EnableTestButtons(true);
+                    yield break;
+                }
+                
+                gameManager.canThrowAgain = false;
+                
+                if (!testOutcome.HasValue && gameManager.yutThrowController != null)
+                {
+                    yield return StartCoroutine(gameManager.yutThrowController.ResetYutToStartPositionCoroutine());
+                    yield return new WaitForSeconds(0.3f);
+                }
+                
+                // 턴 변경
+                gameManager.ChangeTurn();
+                turnChangedInMoveToPlatform = true;
+                gameManager.UpdateUI();
+                gameManager.isPlayerMoving = false;
+                if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
+                gameManager.EnableTestButtons(true);
+                yield break;
             }
-            
-            gameManager.canThrowAgain = false;
-            gameManager.ChangeTurn();
-            gameManager.UpdateUI();
-            gameManager.isPlayerMoving = false;
-            if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
-            gameManager.EnableTestButtons(true);
-            yield break;
+            else
+            {
+                // pendingMovements가 없으면 바로 턴 종료
+                // 단, 빽도로 말을 잡아서 추가 던질 기회가 생긴 경우에는 턴을 종료하지 않음
+                if (gameManager.canThrowAgain)
+                {
+                    if (!testOutcome.HasValue && gameManager.yutThrowController != null)
+                    {
+                        yield return StartCoroutine(gameManager.yutThrowController.ResetYutToStartPositionCoroutine());
+                        yield return new WaitForSeconds(0.3f);
+                    }
+                    
+                    gameManager.UpdateUI();
+                    gameManager.isPlayerMoving = false;
+                    if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
+                    gameManager.EnableTestButtons(true);
+                    yield break;
+                }
+                
+                if (gameManager.yutThrowController != null)
+                {
+                    yield return StartCoroutine(gameManager.yutThrowController.ResetYutToStartPositionCoroutine());
+                    yield return new WaitForSeconds(0.3f);
+                }
+                
+                gameManager.canThrowAgain = false;
+                gameManager.ChangeTurn();
+                gameManager.UpdateUI();
+                gameManager.isPlayerMoving = false;
+                if (gameManager.throwButton != null) gameManager.throwButton.interactable = true;
+                gameManager.EnableTestButtons(true);
+                yield break;
+            }
         }
         
         // 도/개/걸: 먼저 말 선택, 그 다음 발판 선택
@@ -539,6 +739,9 @@ public class YutTurnManager : MonoBehaviour
             List<int> horsesToSelect = gameManager.GetAvailableHorsesForCurrentPlayer();
             if (horsesToSelect.Count > 0)
             {
+                // 골인 가능한 말이 있는지 확인하고 골인 버튼 활성화
+                gameManager.UpdateGoalInButtonState();
+                
                 gameManager.ShowSelectableHorses(horsesToSelect);
                 gameManager.waitingForHorseSelection = true;
                 
@@ -548,7 +751,13 @@ public class YutTurnManager : MonoBehaviour
                     yield return null;
                 }
                 
-                // 빽도인 경우 특별 처리
+                // 발판 선택 대기 (빽도도 발판 선택 방식으로 처리)
+                while (gameManager.waitingForPlatformSelection)
+                {
+                    yield return null;
+                }
+                
+                // 빽도인 경우: 이동 완료 후 pendingMovements에서 제거
                 if (gameManager.isBackDoTurn)
                 {
                     YutOutcome backDoMovement = YutOutcome.Nak;
@@ -563,20 +772,9 @@ public class YutTurnManager : MonoBehaviour
                     
                     if (backDoMovement != YutOutcome.Nak)
                     {
-                        while (gameManager.isPlayerMoving)
-                        {
-                            yield return null;
-                        }
                         pendingMovements.Remove(backDoMovement);
                     }
                     gameManager.isBackDoTurn = false;
-                    continue;
-                }
-                
-                // 발판 선택 대기
-                while (gameManager.waitingForPlatformSelection)
-                {
-                    yield return null;
                 }
                 
                 // 이동 완료 대기

@@ -4,7 +4,7 @@ using UnityEngine.AI;
 public class PlayerController : MonoBehaviour
 {
     [Header("Movement Settings")]
-    public float moveSpeed = 5f;                // 이동 속도 (더 크게 하면 더 빠르게 이동, 예: 10f)
+    public float moveSpeed = 20f;                // 이동 속도 (4배 증가: 5f -> 20f)
     public float rotationSpeed = 10f;            // 회전 속도 (더 크게 하면 더 빠르게 회전, 예: 20f)
     
     private NavMeshAgent agent;
@@ -33,7 +33,7 @@ public class PlayerController : MonoBehaviour
         // NavMeshAgent 설정
         agent.speed = moveSpeed;
         agent.angularSpeed = rotationSpeed;
-        agent.acceleration = 20f;                 // 가속도 (더 크게 하면 더 빠르게 가속, 예: 40f)
+        agent.acceleration = 80f;                 // 가속도 (4배 증가: 20f -> 80f)
         agent.stoppingDistance = 0.3f;
         agent.radius = 0.2f; // 반지름 감소 (더 정확한 경로)
         agent.height = 2f;
