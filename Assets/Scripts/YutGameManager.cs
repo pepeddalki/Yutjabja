@@ -821,6 +821,16 @@ public class YutGameManager : MonoBehaviour
                 // 적의 말을 잡았으면 시작 위치로 보내기
                 if (enemyHorsesToCapture.Count > 0)
                 {
+                    // 잡는 말의 공격 애니메이션 실행
+                    if (players[horseIndex] != null)
+                    {
+                        PlayerController attackerController = players[horseIndex].GetComponent<PlayerController>();
+                        if (attackerController != null)
+                        {
+                            attackerController.PlayAttackAnimation();
+                        }
+                    }
+                    
                     foreach (int enemyHorseIndex in enemyHorsesToCapture)
                     {
                         // 해당 적의 말과 같은 위치에 있는 같은 팀 말들도 모두 찾기
@@ -845,6 +855,17 @@ public class YutGameManager : MonoBehaviour
                         {
                             Vector3 initialPosVector = horseInitialPositions[enemyTeamHorse];
                             string enemyHorseName = enemyTeamHorse < 4 ? $"메이지{enemyTeamHorse+1}" : $"기사{enemyTeamHorse-3}";
+                            
+                            // 잡히는 말의 죽음 애니메이션 실행
+                            if (players[enemyTeamHorse] != null)
+                            {
+                                PlayerController victimController = players[enemyTeamHorse].GetComponent<PlayerController>();
+                                if (victimController != null)
+                                {
+                                    victimController.PlayDeathAnimation();
+                                }
+                            }
+                            
                             // playerPositions는 대기공간(-1)으로 설정
                             playerPositions[enemyTeamHorse] = -1;
                             if (players[enemyTeamHorse] != null)
@@ -1296,6 +1317,16 @@ public class YutGameManager : MonoBehaviour
                     bool isBackDoCapture = isBackDoTurn;
                     Debug.Log($"[MoveHorseBackwardInternal] 적 말을 잡음. isBackDoTurn: {isBackDoTurn}, isBackDoCapture: {isBackDoCapture}");
                     
+                    // 잡는 말의 공격 애니메이션 실행
+                    if (players[horseIndex] != null)
+                    {
+                        PlayerController attackerController = players[horseIndex].GetComponent<PlayerController>();
+                        if (attackerController != null)
+                        {
+                            attackerController.PlayAttackAnimation();
+                        }
+                    }
+                    
                     foreach (int enemyHorseIndex in enemyHorsesToCapture)
                     {
                         // 해당 적의 말과 같은 위치에 있는 같은 팀 말들도 모두 찾기
@@ -1320,6 +1351,17 @@ public class YutGameManager : MonoBehaviour
                         {
                             Vector3 initialPosVector = horseInitialPositions[enemyTeamHorse];
                             string enemyHorseName = enemyTeamHorse < 4 ? $"메이지{enemyTeamHorse+1}" : $"기사{enemyTeamHorse-3}";
+                            
+                            // 잡히는 말의 죽음 애니메이션 실행
+                            if (players[enemyTeamHorse] != null)
+                            {
+                                PlayerController victimController = players[enemyTeamHorse].GetComponent<PlayerController>();
+                                if (victimController != null)
+                                {
+                                    victimController.PlayDeathAnimation();
+                                }
+                            }
+                            
                             // playerPositions는 대기공간(-1)으로 설정
                             playerPositions[enemyTeamHorse] = -1;
                             if (players[enemyTeamHorse] != null)
@@ -2358,11 +2400,34 @@ public class YutGameManager : MonoBehaviour
             }
             
             // 적의 말 잡기 처리
+            if (enemyHorsesToCapture.Count > 0)
+            {
+                // 잡는 말의 공격 애니메이션 실행
+                if (players[horseIndex] != null)
+                {
+                    PlayerController attackerController = players[horseIndex].GetComponent<PlayerController>();
+                    if (attackerController != null)
+                    {
+                        attackerController.PlayAttackAnimation();
+                    }
+                }
+            }
+            
             foreach (int enemyHorseIndex in enemyHorsesToCapture)
             {
                 // 적의 말을 대기공간으로 이동
                 int oldPosition = playerPositions[enemyHorseIndex];
                 playerPositions[enemyHorseIndex] = -1;
+                
+                // 잡히는 말의 죽음 애니메이션 실행
+                if (players[enemyHorseIndex] != null)
+                {
+                    PlayerController victimController = players[enemyHorseIndex].GetComponent<PlayerController>();
+                    if (victimController != null)
+                    {
+                        victimController.PlayDeathAnimation();
+                    }
+                }
                 
                 // 적의 말과 같은 위치에 있던 같은 팀 말들도 대기공간으로
                 bool enemyIsMage = enemyHorseIndex < 4;
@@ -2373,6 +2438,16 @@ public class YutGameManager : MonoBehaviour
                         bool kIsMage = k < 4;
                         if (kIsMage == enemyIsMage)
                         {
+                            // 같은 팀 말도 죽음 애니메이션 실행
+                            if (players[k] != null)
+                            {
+                                PlayerController victimController = players[k].GetComponent<PlayerController>();
+                                if (victimController != null)
+                                {
+                                    victimController.PlayDeathAnimation();
+                                }
+                            }
+                            
                             playerPositions[k] = -1;
                             if (players[k] != null && horseManager != null)
                             {
@@ -2661,6 +2736,16 @@ public class YutGameManager : MonoBehaviour
                         }
                     }
                     
+                    // 잡는 말의 공격 애니메이션 실행
+                    if (players[horseIndex] != null)
+                    {
+                        PlayerController attackerController = players[horseIndex].GetComponent<PlayerController>();
+                        if (attackerController != null)
+                        {
+                            attackerController.PlayAttackAnimation();
+                        }
+                    }
+                    
                     foreach (int enemyHorseIndex in enemyHorsesToCapture)
                     {
                         // 해당 적의 말과 같은 위치에 있는 같은 팀 말들도 모두 찾기
@@ -2685,6 +2770,17 @@ public class YutGameManager : MonoBehaviour
                         {
                             Vector3 initialPosVector = horseInitialPositions[enemyTeamHorse];
                             string enemyHorseName = enemyTeamHorse < 4 ? $"메이지{enemyTeamHorse+1}" : $"기사{enemyTeamHorse-3}";
+                            
+                            // 잡히는 말의 죽음 애니메이션 실행
+                            if (players[enemyTeamHorse] != null)
+                            {
+                                PlayerController victimController = players[enemyTeamHorse].GetComponent<PlayerController>();
+                                if (victimController != null)
+                                {
+                                    victimController.PlayDeathAnimation();
+                                }
+                            }
+                            
                             // playerPositions는 대기공간(-1)으로 설정
                             playerPositions[enemyTeamHorse] = -1;
                             if (players[enemyTeamHorse] != null)
@@ -2936,23 +3032,6 @@ public class YutGameManager : MonoBehaviour
                             Debug.Log($"[MoveToSelectedPlatformInternal] A1에 정확히 도착했습니다. 골인이 아닙니다. remainingSteps: {remainingSteps}");
                         }
                     }
-                    
-                    // 황금 발판인지 확인 (최종 발판에서만)
-                    if (isLastStep && platformManager != null && playerPositions[horseIndex] == platformManager.GoldenPlatformIndex)
-                    {
-                        hasExtraThrow = true;
-                        canThrowAgain = true; // 즉시 던질 기회 제공
-                        platformManager.RestorePlatformColor(platformManager.GoldenPlatformIndex);
-                        
-                        // 황금 발판 효과 메시지 표시
-                        if (resultText != null)
-                        {
-                            resultText.text = "황금 발판 효과! 추가 던질 기회 획득!";
-                        }
-                        
-                        yield return new WaitForSeconds(0.5f);
-                        platformManager.SelectRandomGoldenPlatform();
-                    }
                 }
             }
             
@@ -2961,6 +3040,24 @@ public class YutGameManager : MonoBehaviour
         
         // 이동 완료
         isPlayerMoving = false;
+        
+        // 이동 완료 후 황금 발판 체크 (최종 도착 위치에서만)
+        // 말이 최종 위치에 완전히 도착한 후에 황금발판 처리
+        if (platformManager != null && playerPositions[horseIndex] >= 0 && playerPositions[horseIndex] == platformManager.GoldenPlatformIndex)
+        {
+            hasExtraThrow = true;
+            canThrowAgain = true; // 즉시 던질 기회 제공
+            platformManager.RestorePlatformColor(platformManager.GoldenPlatformIndex);
+            
+            // 황금 발판 효과 메시지 표시
+            if (resultText != null)
+            {
+                resultText.text = "황금 발판 효과! 추가 던질 기회 획득!";
+            }
+            
+            yield return new WaitForSeconds(0.5f); // 효과 확인 시간
+            platformManager.SelectRandomGoldenPlatform();
+        }
         
         // 사용된 이동을 pendingMovements에서 제거 (이동 완료 후 제거)
         if (usedMovement != YutOutcome.Nak && turnManager != null)

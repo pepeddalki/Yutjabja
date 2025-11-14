@@ -183,4 +183,108 @@ public class PlayerController : MonoBehaviour
             animator.SetBool("IsMoving", isMoving);
         }
     }
+    
+    // 공격 애니메이션 실행
+    public void PlayAttackAnimation()
+    {
+        if (animator == null) return;
+        
+        // 파라미터가 존재하는지 확인
+        bool hasAttackParam = false;
+        AnimatorControllerParameterType attackParamType = AnimatorControllerParameterType.Bool;
+        
+        if (animator.parameters != null)
+        {
+            foreach (AnimatorControllerParameter param in animator.parameters)
+            {
+                if (param.name == "Attack")
+                {
+                    hasAttackParam = true;
+                    attackParamType = param.type;
+                    break;
+                }
+            }
+        }
+        
+        if (!hasAttackParam)
+        {
+            Debug.LogWarning("Animator에 'Attack' 파라미터가 없습니다. Animator Controller에 'Attack' 파라미터를 추가해주세요.");
+            return;
+        }
+        
+        // 파라미터 타입에 따라 실행
+        if (attackParamType == AnimatorControllerParameterType.Trigger)
+        {
+            animator.SetTrigger("Attack");
+        }
+        else if (attackParamType == AnimatorControllerParameterType.Bool)
+        {
+            animator.SetBool("Attack", true);
+            // 0.1초 후 리셋 (애니메이션이 끝나면 자동으로 false로 돌아가도록)
+            Invoke(nameof(ResetAttackAnimation), 0.1f);
+        }
+    }
+    
+    private void ResetAttackAnimation()
+    {
+        if (animator == null) return;
+        
+        // 파라미터가 존재하는지 확인
+        bool hasAttackParam = false;
+        if (animator.parameters != null)
+        {
+            foreach (AnimatorControllerParameter param in animator.parameters)
+            {
+                if (param.name == "Attack" && param.type == AnimatorControllerParameterType.Bool)
+                {
+                    hasAttackParam = true;
+                    break;
+                }
+            }
+        }
+        
+        if (hasAttackParam)
+        {
+            animator.SetBool("Attack", false);
+        }
+    }
+    
+    // 죽음 애니메이션 실행
+    public void PlayDeathAnimation()
+    {
+        if (animator == null) return;
+        
+        // 파라미터가 존재하는지 확인
+        bool hasDeathParam = false;
+        AnimatorControllerParameterType deathParamType = AnimatorControllerParameterType.Bool;
+        
+        if (animator.parameters != null)
+        {
+            foreach (AnimatorControllerParameter param in animator.parameters)
+            {
+                if (param.name == "Death")
+                {
+                    hasDeathParam = true;
+                    deathParamType = param.type;
+                    break;
+                }
+            }
+        }
+        
+        if (!hasDeathParam)
+        {
+            Debug.LogWarning("Animator에 'Death' 파라미터가 없습니다. Animator Controller에 'Death' 파라미터를 추가해주세요.");
+            return;
+        }
+        
+        // 파라미터 타입에 따라 실행
+        if (deathParamType == AnimatorControllerParameterType.Trigger)
+        {
+            animator.SetTrigger("Death");
+        }
+        else if (deathParamType == AnimatorControllerParameterType.Bool)
+        {
+            animator.SetBool("Death", true);
+        }
+    }
 }

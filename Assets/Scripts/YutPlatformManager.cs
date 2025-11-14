@@ -16,6 +16,8 @@ public class YutPlatformManager : MonoBehaviour
     private int goldenPlatformIndex = -1;
     [System.NonSerialized]
     private List<int> selectablePlatformIndices = new List<int>();
+    [System.NonSerialized]
+    private GameObject goldenPlatformHighlight; // 황금발판 위 빨간색 표시 오브젝트
     
     public int GoldenPlatformIndex => goldenPlatformIndex;
     
@@ -168,15 +170,114 @@ public class YutPlatformManager : MonoBehaviour
         {
             if (index >= 0 && index < platformRenderers.Length && platformRenderers[index] != null)
             {
-                // 발판에 하이라이트 머티리얼 적용
-                Material[] materials = platformRenderers[index].materials;
-                if (materials.Length > 0)
+                // 황금 발판은 황금색 유지하고 위에 빨간색 링 표시
+                if (index == goldenPlatformIndex)
                 {
-                    materials[0] = selectablePlatformMaterial;
+                    // 황금 발판 위에 빨간색 링 생성
+                    CreateGoldenPlatformHighlight(index);
+                }
+                else
+                {
+                    // 일반 발판에 하이라이트 머티리얼 적용
+                    Material[] materials = new Material[platformRenderers[index].materials.Length];
+                    for (int i = 0; i < materials.Length; i++)
+                    {
+                        materials[i] = i == 0 ? selectablePlatformMaterial : platformRenderers[index].materials[i];
+                    }
                     platformRenderers[index].materials = materials;
                 }
             }
         }
+    }
+    
+    // 황금 발판 위에 빨간색 표시 생성
+    private void CreateGoldenPlatformHighlight(int index)
+    {
+        if (boardPositions == null || index < 0 || index >= boardPositions.Length || boardPositions[index] == null)
+        {
+            Debug.LogWarning($"[황금발판 하이라이트] 생성 실패 - 잘못된 인덱스: {index}");
+            return;
+        }
+        
+        // 이미 존재하면 제거
+        if (goldenPlatformHighlight != null)
+        {
+            Destroy(goldenPlatformHighlight);
+        }
+        
+        // 빨간색 원판 생성 (Cylinder를 얇게 만들어서 동그란 원판처럼)
+        goldenPlatformHighlight = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        goldenPlatformHighlight.name = "GoldenPlatformHighlight";
+        goldenPlatformHighlight.layer = 0; // Default 레이어
+        
+        // 발판 위치보다 위로 배치
+        Vector3 platformPos = boardPositions[index].position;
+        goldenPlatformHighlight.transform.position = platformPos + new Vector3(0f, 2.0f, 0f); // 발판 위 2.0 유닛
+        
+        // 크기 조정 (넓고 얇은 원판)
+        goldenPlatformHighlight.transform.localScale = new Vector3(2.5f, 0.1f, 2.5f); // 넓고 얇은 원판
+        
+        // RGB 색상으로 직접 머티리얼 생성 (r:198, g:36, b:70, a:255)
+        Renderer highlightRenderer = goldenPlatformHighlight.GetComponent<Renderer>();
+        if (highlightRenderer != null)
+        {
+            // 여러 셰이더 시도 (프로젝트 설정에 따라 다름)
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit"); // URP
+            if (shader == null)
+            {
+                shader = Shader.Find("Standard"); // Built-in
+            }
+            if (shader == null)
+            {
+                shader = Shader.Find("Diffuse"); // Legacy
+            }
+            if (shader == null)
+            {
+                shader = Shader.Find("Unlit/Color"); // Unlit
+            }
+            
+            if (shader != null)
+            {
+                // 새로운 머티리얼 생성
+                Material customMaterial = new Material(shader);
+                // RGB 값을 0~1 범위로 변환 (255로 나눔)
+                customMaterial.color = new Color(198f / 255f, 36f / 255f, 70f / 255f, 255f / 255f);
+                
+                // Standard 셰이더인 경우 추가 설정
+                if (shader.name.Contains("Standard"))
+                {
+                    customMaterial.SetFloat("_Metallic", 0f);
+                    customMaterial.SetFloat("_Glossiness", 0.5f);
+                }
+                
+                highlightRenderer.material = customMaterial;
+                highlightRenderer.enabled = true;
+                highlightRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                highlightRenderer.receiveShadows = true;
+                
+                Debug.Log($"[황금발판 하이라이트] 커스텀 색상 적용 완료 - RGB(198, 36, 70), 셰이더: {shader.name}");
+            }
+            else
+            {
+                Debug.LogError("[황금발판 하이라이트] 사용 가능한 셰이더를 찾을 수 없습니다!");
+            }
+        }
+        else
+        {
+            Debug.LogError("[황금발판 하이라이트] Renderer를 찾을 수 없습니다!");
+        }
+        
+        // Collider 제거 (클릭 방해하지 않도록)
+        Collider highlightCollider = goldenPlatformHighlight.GetComponent<Collider>();
+        if (highlightCollider != null)
+        {
+            Destroy(highlightCollider);
+        }
+        
+        // 오브젝트 활성화 확인
+        goldenPlatformHighlight.SetActive(true);
+        
+        Debug.Log($"[황금발판 하이라이트] 생성 완료 - 위치: {goldenPlatformHighlight.transform.position}, 크기: {goldenPlatformHighlight.transform.localScale}, 활성화: {goldenPlatformHighlight.activeSelf}");
     }
     
     public void HideSelectablePlatforms()
@@ -185,11 +286,24 @@ public class YutPlatformManager : MonoBehaviour
         {
             if (index >= 0 && index < platformRenderers.Length && platformRenderers[index] != null && originalMaterials[index] != null)
             {
-                // 원본 머티리얼로 복구
-                Material[] materials = platformRenderers[index].materials;
-                if (materials.Length > 0)
+                // 황금 발판은 빨간색 표시만 제거 (황금색은 유지)
+                if (index == goldenPlatformIndex)
                 {
-                    materials[0] = originalMaterials[index];
+                    // 빨간색 링 제거
+                    if (goldenPlatformHighlight != null)
+                    {
+                        Destroy(goldenPlatformHighlight);
+                        goldenPlatformHighlight = null;
+                    }
+                }
+                else
+                {
+                    // 원본 머티리얼로 복구
+                    Material[] materials = new Material[platformRenderers[index].materials.Length];
+                    for (int i = 0; i < materials.Length; i++)
+                    {
+                        materials[i] = i == 0 ? originalMaterials[index] : platformRenderers[index].materials[i];
+                    }
                     platformRenderers[index].materials = materials;
                 }
             }
