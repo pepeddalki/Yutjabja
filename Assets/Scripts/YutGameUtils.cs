@@ -50,9 +50,9 @@ public static class YutGameUtils
     // 말 이름 가져오기
     public static string GetHorseName(int horseIndex)
     {
-        bool isBarbarian = horseIndex < 4;
-        int horseNumber = (isBarbarian ? horseIndex : horseIndex - 4) + 1;
-        string playerName = isBarbarian ? "바바리안" : "기사";
+        bool isMage = horseIndex < 4;
+        int horseNumber = (isMage ? horseIndex : horseIndex - 4) + 1;
+        string playerName = isMage ? "메이지" : "기사";
         return $"{playerName}{horseNumber}";
     }
     

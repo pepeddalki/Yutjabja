@@ -239,6 +239,13 @@ public class YutSelectionHandler : MonoBehaviour
             }
         }
         
+        // A1에 있는 canGoalInFromA1 == true인 말은 골인만 가능하므로 availablePositions를 A1만 포함
+        if (currentPosition == 0 && gameManager.CanGoalInFromA1(horseIndex))
+        {
+            availablePositions.Clear();
+            availablePositions.Add(0); // A1만 표시
+        }
+        
         if (availablePositions.Count == 0)
         {
             Debug.LogWarning($"말 {horseIndex}의 이동 가능한 발판이 없습니다.");
@@ -252,7 +259,26 @@ public class YutSelectionHandler : MonoBehaviour
         // 골인 조건을 만족하는 이동이 있는지 확인
         bool canGoalIn = false;
         YutOutcome goalInMovement = YutOutcome.Nak;
-        if (pendingMovements.Count > 0 && currentPosition != 0 && currentPosition != -1)
+        
+        // A1에 있는 canGoalInFromA1 == true인 말은 골인 가능
+        if (pendingMovements.Count > 0 && currentPosition == 0 && gameManager.CanGoalInFromA1(horseIndex))
+        {
+            foreach (YutOutcome movement in pendingMovements)
+            {
+                if (!gameManager.IsBackDo(movement))
+                {
+                    int moveSteps = YutGameUtils.GetMoveSteps((int)movement);
+                    // A1에서 시작해서 1칸 이상 이동 가능하면 골인 가능 (A1을 지나가면 골인)
+                    if (moveSteps >= 1)
+                    {
+                        canGoalIn = true;
+                        goalInMovement = movement;
+                        break;
+                    }
+                }
+            }
+        }
+        else if (pendingMovements.Count > 0 && currentPosition != 0 && currentPosition != -1)
         {
             foreach (YutOutcome movement in pendingMovements)
             {
@@ -285,7 +311,6 @@ public class YutSelectionHandler : MonoBehaviour
         {
             availablePositions.Clear();
             availablePositions.Add(0); // A1만 표시
-            Debug.Log($"[골인 버튼 활성화] A1만 표시: {string.Join(", ", availablePositions)}");
         }
         
         gameManager.ShowSelectablePlatforms(availablePositions);
@@ -326,6 +351,18 @@ public class YutSelectionHandler : MonoBehaviour
             return;
         }
         
+        // 이동할 말 인덱스 저장
+        int horseIndexToMove = gameManager.currentHorseIndexForMove;
+        int currentPosition = gameManager.playerPositions[horseIndexToMove];
+        
+        // A1을 클릭했고, canGoalInFromA1 == true인 말이면 골인 버튼을 통해서만 골인 가능
+        // A1 클릭 시에는 아무 동작도 하지 않음 (골인 버튼 클릭 필요)
+        if (platformIndex == 0 && currentPosition == 0 && gameManager.CanGoalInFromA1(horseIndexToMove))
+        {
+            // A1 클릭 시 아무 동작도 하지 않음 (골인 버튼 클릭 필요)
+            return;
+        }
+        
         // 발판 선택 표시 제거
         gameManager.HideSelectablePlatforms();
         
@@ -338,10 +375,6 @@ public class YutSelectionHandler : MonoBehaviour
         
         // 선택 대기 상태 해제
         gameManager.waitingForPlatformSelection = false;
-        
-        // 이동할 말 인덱스 저장
-        int horseIndexToMove = gameManager.currentHorseIndexForMove;
-        int currentPosition = gameManager.playerPositions[horseIndexToMove];
         
         // 대기 중인 이동 목록 가져오기 (빽도 턴 처리에서도 사용)
         List<YutOutcome> pendingMovementsList = gameManager.turnManager != null ? gameManager.turnManager.GetPendingMovements() : new List<YutOutcome>();

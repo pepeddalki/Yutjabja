@@ -206,6 +206,53 @@ public class YutHorseManager : MonoBehaviour
                 if (players[hIndex] != null && players[hIndex].transform != null)
                 {
                     players[hIndex].transform.position = finalPos;
+                    
+                    // B1(인덱스 5)에 정확히 도착해서 멈출 때는 225도, B2~B5(인덱스 6~9)는 270도
+                    if (positionIndex == 5)
+                    {
+                        Vector3 currentRotation = players[hIndex].transform.eulerAngles;
+                        players[hIndex].transform.rotation = Quaternion.Euler(currentRotation.x, 225f, currentRotation.z);
+                    }
+                    else if (positionIndex >= 6 && positionIndex <= 9)
+                    {
+                        Vector3 currentRotation = players[hIndex].transform.eulerAngles;
+                        players[hIndex].transform.rotation = Quaternion.Euler(currentRotation.x, 270f, currentRotation.z);
+                    }
+                    // C1(인덱스 10)에 정확히 도착해서 멈출 때는 135도, C2~C5(인덱스 11~14)는 180도
+                    else if (positionIndex == 10)
+                    {
+                        Vector3 currentRotation = players[hIndex].transform.eulerAngles;
+                        players[hIndex].transform.rotation = Quaternion.Euler(currentRotation.x, 135f, currentRotation.z);
+                    }
+                    else if (positionIndex >= 11 && positionIndex <= 14)
+                    {
+                        Vector3 currentRotation = players[hIndex].transform.eulerAngles;
+                        players[hIndex].transform.rotation = Quaternion.Euler(currentRotation.x, 180f, currentRotation.z);
+                    }
+                    // D1~D5 (인덱스 15~19)에 도착하면 Y rotation을 90도로 설정
+                    else if (positionIndex >= 15 && positionIndex <= 19)
+                    {
+                        Vector3 currentRotation = players[hIndex].transform.eulerAngles;
+                        players[hIndex].transform.rotation = Quaternion.Euler(currentRotation.x, 90f, currentRotation.z);
+                    }
+                    // E1, E2 (인덱스 20, 21)에 도착하면 Y rotation을 225도로 설정
+                    else if (positionIndex == 20 || positionIndex == 21)
+                    {
+                        Vector3 currentRotation = players[hIndex].transform.eulerAngles;
+                        players[hIndex].transform.rotation = Quaternion.Euler(currentRotation.x, 225f, currentRotation.z);
+                    }
+                    // EF3 (인덱스 22)에 도착하면 Y rotation을 135도로 설정
+                    else if (positionIndex == 22)
+                    {
+                        Vector3 currentRotation = players[hIndex].transform.eulerAngles;
+                        players[hIndex].transform.rotation = Quaternion.Euler(currentRotation.x, 135f, currentRotation.z);
+                    }
+                    // E4, E5 (인덱스 23, 24)에 도착하면 Y rotation을 225도로 설정
+                    else if (positionIndex == 23 || positionIndex == 24)
+                    {
+                        Vector3 currentRotation = players[hIndex].transform.eulerAngles;
+                        players[hIndex].transform.rotation = Quaternion.Euler(currentRotation.x, 225f, currentRotation.z);
+                    }
                 }
             }
         }
@@ -214,15 +261,15 @@ public class YutHorseManager : MonoBehaviour
             Debug.LogWarning($"RefreshHorsesAtPosition: 잘못된 positionIndex {positionIndex} (범위: -1 ~ {boardPositions.Length - 1})");
         }
         
-        // 바바리안과 기사로 그룹화하여 UI 처리
-        List<int> barbariansAtPos = new List<int>();
+        // 메이지와 기사로 그룹화하여 UI 처리
+        List<int> magesAtPos = new List<int>();
         List<int> knightsAtPos = new List<int>();
         
         foreach (int hIndex in horsesAtPos)
         {
             if (hIndex < 4)
             {
-                barbariansAtPos.Add(hIndex);
+                magesAtPos.Add(hIndex);
             }
             else
             {
@@ -246,8 +293,8 @@ public class YutHorseManager : MonoBehaviour
         }
         else
         {
-            // 바바리안 처리: 첫 번째 말만 보이게, 나머지는 숨기기
-            ProcessHorseGroup(barbariansAtPos, positionIndex);
+            // 메이지 처리: 첫 번째 말만 보이게, 나머지는 숨기기
+            ProcessHorseGroup(magesAtPos, positionIndex);
             
             // 기사 처리: 첫 번째 말만 보이게, 나머지는 숨기기
             ProcessHorseGroup(knightsAtPos, positionIndex);
