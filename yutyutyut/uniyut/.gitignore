@@ -1,0 +1,36 @@
+# Build files
+**/build/
+**/.gradle/
+**/.cxx/
+**/gradle/wrapper/
+**/.transforms/
+
+# Unity generated files
+**/Library/
+**/Temp/
+**/Obj/
+**/Build/
+**/Builds/
+**/Logs/
+**/UserSettings/
+
+# Android Studio files
+**/.idea/
+**/local.properties
+**/*.iml
+**/*.iws
+**/*.ipr
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
