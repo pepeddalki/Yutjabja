@@ -1,0 +1,9 @@
+# Unity Terrain Configuration
+terrain_size_x=1000
+terrain_size_y=100
+terrain_size_z=1000
+heightmap_resolution=1025
+alphamap_resolution=16
+texture_layers=1
+layer_0_tiling_x=20
+layer_0_tiling_y=20

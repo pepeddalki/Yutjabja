@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: f8937083c54237f46b93423b750a7807
+timeCreated: 1465403699
+licenseType: Store
+ShaderImporter:
+  defaultTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 66124
+  packageName: Toon Forest Free Set
+  packageVersion: 1.0
+  assetPath: Assets/Toon Forest free set/sqript/custom.shader
+  uploadId: 126005

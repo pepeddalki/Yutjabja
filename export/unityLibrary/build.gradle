@@ -1,0 +1,156 @@
+apply plugin: 'com.android.library'
+apply from: '../shared/keepUnitySymbols.gradle'
+// Android 라이브러리 설정을 명시적으로 가져오기 위해 import 구문을 추가합니다.
+import com.android.build.gradle.LibraryExtension
+
+dependencies {
+    api fileTree(dir: 'libs', include: ['*.jar'])
+    implementation project(':unityLibrary:mobilenotifications.androidlib')
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.core:core:1.9.0'
+    implementation 'androidx.games:games-activity:3.0.5'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.games:games-frame-pacing:1.10.0'
+}
+
+// 1. 모든 설정을 단 하나의 android 블록으로 통합합니다.
+android {
+    namespace "com.unity3d.player"
+    ndkVersion "27.2.12479018"
+    compileSdk 36
+    buildToolsVersion = "34.0.0"
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    defaultConfig {
+        consumerProguardFiles "proguard-unity.txt"
+        versionName "1.0.2"
+        minSdk 23
+        targetSdk 36
+        versionCode 1
+
+        ndk {
+            abiFilters "arm64-v8a"
+            debugSymbolLevel "none"
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_shared", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
+            }
+        }
+    }
+
+    lint {
+        abortOnError false
+    }
+
+    androidResources {
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~"
+        noCompress = ['.unity3d', '.ress', '.resource', '.obb', '.bundle', '.unityexp'] + unityStreamingAssets.tokenize(', ')
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+
+    sourceSets {
+        main {
+            jni.srcDirs = ["src/main/Il2CppOutputProject"]
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            version "3.22.1"
+            path "src/main/cpp/CMakeLists.txt"
+        }
+    }
+
+    buildFeatures {
+        prefab true
+    }
+
+    // 2. buildIl2Cpp 태스크를 android 블록 안으로 통합합니다.
+    tasks.register('buildIl2Cpp') {
+        def workingDir = project.projectDir.toString().replaceAll('\\\\', '/');
+        def archs = [
+            'arm64' : 'arm64-v8a'
+        ]
+        def staticLibs = [
+            'arm64' : [  ]
+        ]
+        inputs.files fileTree(dir: 'src/main/Il2CppOutputProject', include: ['**/*'])
+        inputs.files fileTree(dir: 'src/main/jniStaticLibs', include: ['**/*'])
+        archs.each { arch, abi ->
+            outputs.file "${workingDir}/src/main/jniLibs/${abi}/libil2cpp.so"
+            outputs.file "${workingDir}/symbols/${abi}/libil2cpp.so"
+        }
+        doLast {
+            // 3. 가장 확실한 방법으로 Android 설정 보관소에 직접 접근하여 경로를 가져옵니다.
+            def androidExt = project.extensions.getByType(LibraryExtension)
+            def sdkDir = androidExt.sdkDirectory.path.replaceAll('\\\\', '/')
+            def ndkDir = androidExt.ndkDirectory.path.replaceAll('\\\\', '/')
+
+            archs.each { arch, abi ->
+                def configuration = 'Release'
+                def commandLineArgs = []
+                commandLineArgs.add("--compile-cpp")
+                commandLineArgs.add("--platform=Android")
+                commandLineArgs.add("--architecture=${arch}")
+                commandLineArgs.add("--outputpath=${workingDir}/src/main/jniLibs/${abi}/libil2cpp.so")
+                commandLineArgs.add("--baselib-directory=${workingDir}/src/main/jniStaticLibs/${abi}")
+                commandLineArgs.add("--incremental-g-c-time-slice=3")
+                commandLineArgs.add("--configuration=${configuration}")
+                commandLineArgs.add("--dotnetprofile=unityaot-linux")
+                commandLineArgs.add("--usymtool-path=${workingDir}/src/main/Il2CppOutputProject/usymtool.exe")
+                commandLineArgs.add("--profiler-report")
+                commandLineArgs.add("--profiler-output-file=${workingDir}/build/il2cpp_${abi}_${configuration}/il2cpp_conv.traceevents")
+                commandLineArgs.add("--print-command-line")
+                commandLineArgs.add("--static-lib-il2-cpp")
+                commandLineArgs.add("--data-folder=${workingDir}/src/main/Il2CppOutputProject/Source/il2cppOutput/data")
+                commandLineArgs.add("--generatedcppdir=${workingDir}/src/main/Il2CppOutputProject/Source/il2cppOutput")
+                commandLineArgs.add("--cachedirectory=${workingDir}/build/il2cpp_${abi}_${configuration}/il2cpp_cache")
+                commandLineArgs.add("--tool-chain-path=${ndkDir}")
+
+                (staticLibs[arch] as String[]).eachWithIndex {fileName, i->
+                    commandLineArgs.add("--additional-libraries=${workingDir}/src/main/jniStaticLibs/${abi}/${fileName}")
+                }
+
+                def executableExtension = ""
+                if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+                    executableExtension = ".exe"
+                    commandLineArgs = commandLineArgs*.replace('\"', '\\\"')
+                }
+                project.exec {
+                    executable "${workingDir}/src/main/Il2CppOutputProject/IL2CPP/build/deploy/il2cpp${executableExtension}"
+                    args commandLineArgs
+                    environment "ANDROID_SDK_ROOT", sdkDir
+                }
+
+                def dbgLevel =  project.android.defaultConfig.ndk.debugSymbolLevel;
+                def usePublicSymbols = dbgLevel == null || !dbgLevel.toString().toLowerCase().equals("full")
+                def extensionToRemove = usePublicSymbols ? ".dbg.so" : ".sym.so"
+                def extensionToKeep = usePublicSymbols ? ".sym.so" : ".dbg.so"
+
+                project.delete "${workingDir}/src/main/jniLibs/${abi}/libil2cpp${extensionToRemove}"
+                project.ant.move(file: "${workingDir}/src/main/jniLibs/${abi}/libil2cpp${extensionToKeep}", tofile: "${workingDir}/symbols/${abi}/libil2cpp.so")
+            }
+        }
+    }
+}
+
+// 4. afterEvaluate 블록의 내용을 동기화에 성공했던 원래의 올바른 방식으로 복원합니다.
+afterEvaluate {
+    if (tasks.findByName('mergeDebugJniLibFolders')) {
+        tasks.findByName('mergeDebugJniLibFolders').dependsOn(tasks.findByName('buildIl2Cpp'))
+    }
+    if (tasks.findByName('mergeReleaseJniLibFolders')) {
+        tasks.findByName('mergeReleaseJniLibFolders').dependsOn(tasks.findByName('buildIl2Cpp'))
+    }
+}
